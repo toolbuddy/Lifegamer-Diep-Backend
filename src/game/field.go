@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"encoding/json"
+	"github.com/f26401004/Lifegamer-Diep-backend/src/utils"
 )
 
 // define the NewField function in game package
@@ -19,7 +20,7 @@ func NewField (width, height float64) *Size {
 
 // define the NewStuff function in game package
 func NewStuff() *Stuff {
-	jsonFile, err := os.Open("../utils/stuffType.json")
+	jsonFile, err := os.Open("src/config/stuffType.json")
 	if (err != nil) {
 		return nil
 	}
@@ -30,12 +31,29 @@ func NewStuff() *Stuff {
 
 	var type_num = int(rand.Float64() * 4 + 1)
 	var type_attr = stuffType[strconv.Itoa(type_num)].(StuffAttribute)
+
+	uuid, _ := utils.NewUUID()
 	var new_stuff = Stuff {
-		Type: type_num,
-		Position: Point {
-			X: rand.Float64() * 1023,
-			Y: rand.Float64() * 1023,
+		GameObject: GameObject {
+			Id: uuid,
+			Position: Point {
+				X: rand.Float64() * 1023,
+				Y: rand.Float64() * 1023,
+			},
+			Mass: 1.0,
+			Radius: 50.0,
+			Velocity: VelocityFormat {
+				X: 0.0,
+				Y: 0.0,
+			},
+			Acceleration: AccelerationFormat {
+				Up: 0.0,
+				Down: 0.0,
+				Left: 0.0,
+				Right: 0.0,
+			},
 		},
+		Type: type_num,
 		Attr: StuffAttribute {
 			HP: type_attr.HP,
 			EXP: type_attr.EXP,

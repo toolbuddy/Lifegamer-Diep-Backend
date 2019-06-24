@@ -113,19 +113,19 @@ func (ps *PlayerSession) getSpeed() float64 {
 // define the updateViewInfo function in PlayerSession Pointer
 func (ps *PlayerSession) updateViewInfo (m *Map) {
 	// get the view width and height
-	var vwL = ps.Player.Attr.Position.X - 1920 / 2
+	var vwL = ps.Player.GameObject.Position.X - 1920 / 2
 	if (vwL < 0) {
 		vwL = 0
 	}
-	var vwU = ps.Player.Attr.Position.X + 1920 / 2
+	var vwU = ps.Player.GameObject.Position.X + 1920 / 2
 	if (vwU > 8192) {
 		vwU = 8192
 	}
-	var vhL = ps.Player.Attr.Position.Y - 1080 / 2
+	var vhL = ps.Player.GameObject.Position.Y - 1080 / 2
 	if (vhL < 0) {
 		vhL = 0
 	}
-	var vhU = ps.Player.Attr.Position.Y + 1080 / 2
+	var vhU = ps.Player.GameObject.Position.Y + 1080 / 2
 	if (vhU > 8192) {
 		vhU = 8192
 	}
@@ -136,26 +136,26 @@ func (ps *PlayerSession) updateViewInfo (m *Map) {
 	ps.Bullets = []*Bullet {}
 	// loop the map info and append the diep/stuff/trap in view
 	for _, diep := range m.Dieps {
-		if (diep.Position.X >= vwL) && (diep.Position.X <= vwU) &&
-			(diep.Position.Y >= vhL) && (diep.Position.Y <= vhU) {
+		if (diep.GameObject.Position.X >= vwL) && (diep.GameObject.Position.X <= vwU) &&
+			(diep.GameObject.Position.Y >= vhL) && (diep.GameObject.Position.Y <= vhU) {
 			ps.Dieps = append(ps.Dieps, diep)
 		}
 	}
 	for _, stuff := range m.Stuffs {
-		if (stuff.Position.X >= vwL) && (stuff.Position.X <= vwU) &&
-			(stuff.Position.Y >= vhL) && (stuff.Position.Y <= vhU) {
+		if (stuff.GameObject.Position.X >= vwL) && (stuff.GameObject.Position.X <= vwU) &&
+			(stuff.GameObject.Position.Y >= vhL) && (stuff.GameObject.Position.Y <= vhU) {
 			ps.Stuffs = append(ps.Stuffs, stuff)
 		}
 	}
 	for _, trap := range m.Traps {
-		if (trap.Position.X >= vwL) && (trap.Position.X <= vwU) &&
-			(trap.Position.Y >= vhL) && (trap.Position.Y <= vhU) {
+		if (trap.GameObject.Position.X >= vwL) && (trap.GameObject.Position.X <= vwU) &&
+			(trap.GameObject.Position.Y >= vhL) && (trap.GameObject.Position.Y <= vhU) {
 			ps.Traps = append(ps.Traps, trap)
 		}
 	}
 	for _, bullet := range m.Bullets {
-		if (bullet.Position.X >= vwL) && (bullet.Position.X <= vwU) &&
-			(bullet.Position.Y >= vhL) && (bullet.Position.Y <= vhU) {
+		if (bullet.GameObject.Position.X >= vwL) && (bullet.GameObject.Position.X <= vwU) &&
+			(bullet.GameObject.Position.Y >= vhL) && (bullet.GameObject.Position.Y <= vhU) {
 			ps.Bullets = append(ps.Bullets, bullet)
 		}
 	}

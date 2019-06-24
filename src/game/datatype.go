@@ -14,40 +14,30 @@ type Point struct {
 type Size struct {
 	W, H float64
 }
-
-type BulletAttribute struct {
-	Rotation int
-	Size int
-	Speed int
-	Damage int
+type AccelerationFormat struct {
+	Up float64
+	Down float64
+	Left float64
+	Right float64
 }
-type Bullet struct {
-	Attr BulletAttribute
+type VelocityFormat struct {
+	X float64
+	Y float64
+} 
+type GameObject struct {
+	Id string
 	Position Point
-	Owner string
+	Mass float64
+	Radius float64
+	Velocity VelocityFormat
+	Acceleration AccelerationFormat
 }
 
-type TrapAttribute struct {
-	BulletSpeed int
-	BulletDamage int
-	BulletReload int
-	BodyDamage int
+type GameObjectInterface interface {
+	GetId() string
 }
 
-type Trap struct {
-	Position Point
-	Rotation int
-	Size int
-	Attr TrapAttribute
-}
 
-type StuffAttribute struct {
-	HP float64
-	EXP int
-	BodyDamage float64
-}
-type Stuff struct {
-	Type int
-	Position Point
-	Attr StuffAttribute
+func (g *GameObject) GetId() string {
+	return g.Id
 }
