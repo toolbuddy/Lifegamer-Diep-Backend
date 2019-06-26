@@ -3,10 +3,16 @@ package game
 import (
 	"encoding/json"
 	"github.com/gorilla/websocket"
-	"log"
-	"math"
 	"time"
+	"log"
 )
+
+type MoveDirection struct {
+	Up bool
+	Down bool
+	Left bool
+	Right bool
+}
 
 // define PlayerSession struct
 type PlayerSession struct {
@@ -18,6 +24,7 @@ type PlayerSession struct {
 	Bullets []*Bullet // bullet in view
 	Traps []*Trap // trap in view
 	Direction Point // shoot angle
+	Moving MoveDirection
 }
 // define CommandpParams struct
 type CommandParams map[string]interface{}
@@ -30,7 +37,11 @@ type PlayerSessionCommand struct {
 // define the NewSession function in game package
 func NewSession(ws *websocket.Conn, player *Player, game *Game) *PlayerSession {
 	// init the session
-	ps := PlayerSession{Socket: ws, Player: player, Game: game}
+	ps := PlayerSession {
+		Socket: ws,
+		Player: player,
+		Game: game,
+	}
 	// parallel execute receiver and loop function
 	go ps.receiver()
 	go ps.loop(&game.MapInfo)
@@ -42,6 +53,7 @@ func (ps *PlayerSession) receiver() {
 	for {
 		_, command, err := ps.Socket.ReadMessage()
 		if err != nil {
+			log.Fatal(err)
 			break
 		}
 		var player_command PlayerSessionCommand = PlayerSessionCommand{}
@@ -53,16 +65,26 @@ func (ps *PlayerSession) receiver() {
 }
 // define the serverCommand function in PlayerSession pointer
 func (ps *PlayerSession) serverCommand(command PlayerSessionCommand) {
+	log.Println(command.Params["Value"])
 	// define player method with correspond action
 	switch command.Method {
-		case "updateDirection":
 		case "moveUp":
+			ps.Moving.Up = command.Params["value"].(bool)
+			break
 		case "moveDown":
+			ps.Moving.Down = command.Params["value"].(bool)
+			break
 		case "moveLeft":
+			ps.Moving.Left = command.Params["value"].(bool)
+			break
 		case "moveRight":
-		case "stop":
+			ps.Moving.Right = command.Params["value"].(bool)
+			break
 		case "shoot":
+			break
 		case "evaluation":
+			ps.Evaluation(command.Params["type"].(string))
+			break
 	}
 }
 
@@ -95,19 +117,6 @@ func (ps *PlayerSession) sendPlayerState(m *Map) {
 			"traps": ps.Traps,
 		},
 	})
-}
-
-func (ps *PlayerSession) updateDirection(command PlayerSessionCommand) {
-	xDif := math.Cos(command.Params["directionAngelRad"].(float64)) * ps.getSpeed()
-	yDif := math.Sin(command.Params["directionAngelRad"].(float64)) * ps.getSpeed()
-	log.Printf("update Direction : x : %f, y: %f  \n", xDif, yDif)
-	ps.Direction.X = float64(xDif)
-	ps.Direction.Y = float64(yDif)
-}
-
-// define the getSpeed function in PlayerSession Pointer
-func (ps *PlayerSession) getSpeed() float64 {
-	return float64(ps.Player.Status.MoveSpeed) * 0.5 + 1
 }
 
 // define the updateViewInfo function in PlayerSession Pointer
@@ -158,5 +167,34 @@ func (ps *PlayerSession) updateViewInfo (m *Map) {
 			(bullet.GameObject.Position.Y >= vhL) && (bullet.GameObject.Position.Y <= vhU) {
 			ps.Bullets = append(ps.Bullets, bullet)
 		}
+	}
+}
+
+func (ps *PlayerSession) Evaluation (type_str string) {
+	switch type_str {
+		case "MaxHP":
+			ps.Player.Status.MaxHP++
+			break
+		case "HPRegeneration":
+			ps.Player.Status.HPRegeneration++
+			break
+		case "MoveSpeed":
+			ps.Player.Status.MoveSpeed++
+			break
+		case "BulletSpeed":
+			ps.Player.Status.BulletSpeed++
+			break
+		case "BulletPenetration":
+			ps.Player.Status.BulletPenetration++
+			break
+		case "BulletReload":
+			ps.Player.Status.BulletReload++
+			break
+		case "BulletDamage":
+			ps.Player.Status.BulletDamage++
+			break
+		case "BodyDamage":
+			ps.Player.Status.BodyDamage++
+			break
 	}
 }

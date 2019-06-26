@@ -4,10 +4,12 @@ import (
 	"log"
 	"math"
 	"sort"
+	"time"
 )
 
 // define the game friction
-const friction = 0.1
+const friction = 0.97
+const ratio = 1.5
 // define game object struct
 type Game struct {
 	Name string
@@ -48,41 +50,58 @@ func (g *Game) runListen () {
 }
 // define the loop function in Game struct pointer
 func (g *Game) loop () {
-	// update the player movement
-	g.updatePhysicItems()
-	// detect player & player collision
-	g.detectDeipCollision()
-	// detect player & stuff collision
-	g.detectStuffCollision()
-	// detect player & trap collision
-	g.detectTrapCollision()
-	// detect player & bullet collision
-	g.detectBulletCollision()
-	// deal all collision
-	g.dealWithCollisions()
+	for {
+		time.Sleep(time.Duration(1000.0 / g.Framerate) * time.Millisecond)
+		// update the player movement
+		g.updatePhysicItems()
+		// detect player & player collision
+		g.detectDeipCollision()
+		// detect player & stuff collision
+		g.detectStuffCollision()
+		// detect player & trap collision
+		g.detectTrapCollision()
+		// detect player & bullet collision
+		g.detectBulletCollision()
+		// deal all collision
+		g.dealWithCollisions()
+	}
 }
 
 func (g *Game) updatePhysicItems() {
 	for _, ps := range g.Sessions {
 		// update the player acceleration
-		ps.Player.GameObject.Acceleration = AccelerationFormat {
-			Up: math.Max(ps.Player.GameObject.Acceleration.Up - friction, 0) / g.Framerate,
-			Down: math.Max(ps.Player.GameObject.Acceleration.Down - friction, 0) / g.Framerate,
-			Left: math.Max(ps.Player.GameObject.Acceleration.Left - friction, 0) / g.Framerate,
-			Right: math.Max(ps.Player.GameObject.Acceleration.Right - friction, 0) / g.Framerate,
+		var new_acceleration AccelerationFormat
+		if (ps.Moving.Up) {
+			new_acceleration.Up = math.Min(ps.Player.GameObject.Acceleration.Up + (float64(ps.Player.Status.MoveSpeed)) * friction / g.Framerate, float64(ps.Player.Status.MoveSpeed))
+		} else {
+			new_acceleration.Up = math.Max(ps.Player.GameObject.Acceleration.Up * friction, 0) / g.Framerate
 		}
+		if (ps.Moving.Down) {
+			new_acceleration.Down = math.Min(ps.Player.GameObject.Acceleration.Down + (float64(ps.Player.Status.MoveSpeed)) * friction / g.Framerate, float64(ps.Player.Status.MoveSpeed))
+		} else {
+			new_acceleration.Down = math.Max(ps.Player.GameObject.Acceleration.Down * friction, 0) / g.Framerate
+		}
+		if (ps.Moving.Left) {
+			new_acceleration.Left = math.Min(ps.Player.GameObject.Acceleration.Left + (float64(ps.Player.Status.MoveSpeed)) * friction / g.Framerate, float64(ps.Player.Status.MoveSpeed))
+		} else {
+			new_acceleration.Left = math.Max(ps.Player.GameObject.Acceleration.Left * friction, 0) / g.Framerate
+		}
+		if (ps.Moving.Right) {
+			new_acceleration.Right = math.Min(ps.Player.GameObject.Acceleration.Right + (float64(ps.Player.Status.MoveSpeed)) * friction / g.Framerate, float64(ps.Player.Status.MoveSpeed))
+		} else {
+			new_acceleration.Right = math.Max(ps.Player.GameObject.Acceleration.Right * friction, 0) / g.Framerate
+		}
+		ps.Player.GameObject.Acceleration = new_acceleration
 		// update the player velocity
-		ps.Player.GameObject.Velocity = VelocityFormat {
-			X: ps.Player.GameObject.Velocity.X - ps.Player.GameObject.Acceleration.Left / g.Framerate +
-				ps.Player.GameObject.Acceleration.Right / g.Framerate,
-			Y: ps.Player.GameObject.Velocity.Y - ps.Player.GameObject.Acceleration.Up / g.Framerate +
-				ps.Player.GameObject.Acceleration.Down / g.Framerate,
-		}
+		ps.Player.GameObject.Velocity.X = math.Max(math.Min(ps.Player.GameObject.Velocity.X - ps.Player.GameObject.Acceleration.Left +
+			ps.Player.GameObject.Acceleration.Right, float64(ps.Player.Status.MoveSpeed + 10) / ratio), float64(ps.Player.Status.MoveSpeed + 10) * (-1.0) / ratio) * friction
+		ps.Player.GameObject.Velocity.Y = math.Max(math.Min(ps.Player.GameObject.Velocity.Y - ps.Player.GameObject.Acceleration.Up +
+				ps.Player.GameObject.Acceleration.Down, float64(ps.Player.Status.MoveSpeed + 10) / ratio), float64(ps.Player.Status.MoveSpeed + 10) * (-1.0) / ratio) * friction
+
 		// update the player location
-		ps.Player.GameObject.Position = Point {
-			X: ps.Player.GameObject.Position.X + ps.Player.GameObject.Velocity.X,
-			Y: ps.Player.GameObject.Position.Y + ps.Player.GameObject.Velocity.Y,
-		}
+		ps.Player.GameObject.Position.X = math.Max(math.Min(ps.Player.GameObject.Position.X + ps.Player.GameObject.Velocity.X / g.Framerate, g.Field.W), 0)
+		ps.Player.GameObject.Position.Y = math.Max(math.Min(ps.Player.GameObject.Position.Y + ps.Player.GameObject.Velocity.Y / g.Framerate, g.Field.H), 0)
+		log.Println("acceleration", ps.Player.GameObject.Position)
 	}
 }
 
