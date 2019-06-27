@@ -16,3 +16,19 @@ type VelocityFormat struct {
 	X float64
 	Y float64
 } 
+
+/**
+ * MoveDirection:
+ * The struct to keep the player current moving direction.
+ *
+ * @property {bool} Up 									- all dieps in player views
+ * @property {bool} Down								- all stuffs in player views
+ * @property {bool} Left								- all bullets in player views
+ * @property {bool} Right								- all traps in player views
+ */
+ type MoveDirection struct {
+	Up bool
+	Down bool
+	Left bool
+	Right bool
+}

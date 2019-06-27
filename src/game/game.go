@@ -1,6 +1,7 @@
 package game
 
 import (
+	"github.com/gorilla/websocket"
 	"log"
 	"math"
 	"sort"
@@ -11,11 +12,11 @@ import (
 
 type GameObject struct {
 	Id string
-	Position Point
+	Position util.Point
 	Mass float64
 	Radius float64
-	Velocity VelocityFormat
-	Acceleration AccelerationFormat
+	Velocity util.VelocityFormat
+	Acceleration util.AccelerationFormat
 }
 
 type GameObjectInterface interface {

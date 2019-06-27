@@ -7,23 +7,8 @@ import (
 	"log"
 	"math"
 	"sync"
+	"github.com/f26401004/Lifegamer-Diep-backend/src/util"
 )
-
-/**
- * MoveDirection:
- * The struct to keep the player current moving direction.
- *
- * @property {bool} Up 									- all dieps in player views
- * @property {bool} Down								- all stuffs in player views
- * @property {bool} Left								- all bullets in player views
- * @property {bool} Right								- all traps in player views
- */
-type MoveDirection struct {
-	Up bool
-	Down bool
-	Left bool
-	Right bool
-}
 
 /**
  * PlayerView:
@@ -51,7 +36,7 @@ type PlayerView struct {
  * @property {bool} Alive 							- the status of the connection
  * @property {*Player} Player						- the player instance
  * @property {*PlayerView} View					- the view instance
- * @property {MoveDirection} Moving			- the current moving direction of player
+ * @property {util.MoveDirection} Moving			- the current moving direction of player
  * @property {sync.Mutex} ControlLock		- the mutex lock to prevent from data race in routines
  */
 type PlayerSession struct {
@@ -61,7 +46,7 @@ type PlayerSession struct {
 	Alive bool
 	Player *Player // player
 	View *PlayerView
-	Moving MoveDirection
+	Moving util.MoveDirection
 	ControlLock sync.Mutex
 }
 
