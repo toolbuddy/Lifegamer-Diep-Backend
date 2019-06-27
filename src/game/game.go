@@ -5,7 +5,27 @@ import (
 	"math"
 	"sort"
 	"time"
+	"github.com/f26401004/Lifegamer-Diep-backend/src/util"
 )
+
+
+type GameObject struct {
+	Id string
+	Position Point
+	Mass float64
+	Radius float64
+	Velocity VelocityFormat
+	Acceleration AccelerationFormat
+}
+
+type GameObjectInterface interface {
+	GetId() string
+}
+
+func (g *GameObject) GetId() string {
+	return g.Id
+}
+
 
 // define the game friction
 const friction = 0.97
@@ -16,9 +36,34 @@ type Game struct {
 	Sessions []*PlayerSession
 	MapInfo Map
 	JoinChannel chan *PlayerSession
-	Field *Size
+	Field *util.Size
 	Framerate float64
 }
+
+/**
+ * <game>.NewSession:
+ * The function to new a player session.
+ *
+ * @param {*websocket.Conn} ws					- the websocket client instance
+ * @param {*Player} player							- the player instance
+ * @param {*Game} game									- the game instance
+ */
+ func NewSession(ws *websocket.Conn, player *Player, game *Game) *PlayerSession {
+	// init the session
+	ps := PlayerSession {
+		Socket: ws,
+		Player: player,
+		Game: game,
+		MBus: make (chan bool, 1),
+		Alive: true,
+	}
+	// parallel execute receiver, loop and ping function
+	go ps.receiver()
+	go ps.loop()
+	go ps.ping()
+	return &ps
+}
+
 
 func NewGame(name string) *Game {
 	game := Game {
@@ -64,13 +109,15 @@ func (g *Game) loop () {
 		g.detectBulletCollision()
 		// deal all collision
 		g.dealWithCollisions()
+		// broadcast the ping pong message to the client
 	}
 }
 
 func (g *Game) updatePhysicItems() {
+	// update the player movement
 	for _, ps := range g.Sessions {
 		// update the player acceleration
-		var new_acceleration AccelerationFormat
+		var new_acceleration util.AccelerationFormat
 		if (ps.Moving.Up) {
 			new_acceleration.Up = math.Min(ps.Player.GameObject.Acceleration.Up + (float64(ps.Player.Status.MoveSpeed)) * friction / g.Framerate, float64(ps.Player.Status.MoveSpeed))
 		} else {
@@ -101,7 +148,42 @@ func (g *Game) updatePhysicItems() {
 		// update the player location
 		ps.Player.GameObject.Position.X = math.Max(math.Min(ps.Player.GameObject.Position.X + ps.Player.GameObject.Velocity.X / g.Framerate, g.Field.W), 0)
 		ps.Player.GameObject.Position.Y = math.Max(math.Min(ps.Player.GameObject.Position.Y + ps.Player.GameObject.Velocity.Y / g.Framerate, g.Field.H), 0)
-		log.Println("acceleration", ps.Player.GameObject.Position)
+	}
+	// update the bullet movement
+	for i, bullet := range g.MapInfo.Bullets {
+		bullet.GameObject.Position.X = math.Max(math.Min(bullet.GameObject.Position.X + bullet.GameObject.Velocity.X / g.Framerate, g.Field.W), 0)
+		bullet.GameObject.Position.Y = math.Max(math.Min(bullet.GameObject.Position.Y + bullet.GameObject.Velocity.Y / g.Framerate, g.Field.H), 0)
+		// if the bullet collide with wall
+		if (bullet.GameObject.Position.X >= g.Field.W) || (bullet.GameObject.Position.X <= 0) ||
+			(bullet.GameObject.Position.Y >= g.Field.H) || (bullet.GameObject.Position.Y <= 0) {
+			// remove the bullet
+			g.MapInfo.Bullets = append(g.MapInfo.Bullets[:i], g.MapInfo.Bullets[i+1:]...)
+		}
+		// count for the bullet existence
+		bullet.Existence--;
+		if (bullet.Existence <= 0) {
+			// remove the bullet
+			g.MapInfo.Bullets = append(g.MapInfo.Bullets[:i], g.MapInfo.Bullets[i+1:]...)
+		}
+	}
+	// update the stuff movement
+	for _, stuff := range g.MapInfo.Stuffs {
+		// update the stuff acceleration
+		var new_acceleration util.AccelerationFormat
+		new_acceleration.Up = math.Max(stuff.GameObject.Acceleration.Up * friction, 0) / g.Framerate
+		new_acceleration.Down = math.Max(stuff.GameObject.Acceleration.Down * friction, 0) / g.Framerate
+		new_acceleration.Left = math.Max(stuff.GameObject.Acceleration.Left * friction, 0) / g.Framerate
+		new_acceleration.Right = math.Max(stuff.GameObject.Acceleration.Right * friction, 0) / g.Framerate
+		stuff.GameObject.Acceleration = new_acceleration
+		// update the player velocity
+		stuff.GameObject.Velocity.X = (stuff.GameObject.Velocity.X - stuff.GameObject.Acceleration.Left +
+			stuff.GameObject.Acceleration.Right) * friction
+		stuff.GameObject.Velocity.Y = (stuff.GameObject.Velocity.Y - stuff.GameObject.Acceleration.Up +
+				stuff.GameObject.Acceleration.Down) * friction
+
+		// update the player location
+		stuff.GameObject.Position.X = math.Max(math.Min(stuff.GameObject.Position.X + stuff.GameObject.Velocity.X / g.Framerate, g.Field.W), 0)
+		stuff.GameObject.Position.Y = math.Max(math.Min(stuff.GameObject.Position.Y + stuff.GameObject.Velocity.Y / g.Framerate, g.Field.H), 0)
 	}
 }
 
@@ -244,7 +326,7 @@ func (g *Game) dealWithCollisions () {
 				})
 				var player_session_b = g.Sessions[player_session_b_index]
 				// update the acceleration of two player
-				var new_acceleration_a = AccelerationFormat {
+				var new_acceleration_a = util.AccelerationFormat {
 					Up: 0.0,
 					Down: 0.0,
 					Left: 0.0,
@@ -255,7 +337,7 @@ func (g *Game) dealWithCollisions () {
 				new_acceleration_a.Left = player_session_a.Player.GameObject.Acceleration.Left + player_session_b.Player.GameObject.Acceleration.Left
 				new_acceleration_a.Right = player_session_a.Player.GameObject.Acceleration.Right + player_session_b.Player.GameObject.Acceleration.Right
 
-				var new_acceleration_b = AccelerationFormat {
+				var new_acceleration_b = util.AccelerationFormat {
 					Up: 0.0,
 					Down: 0.0,
 					Left: 0.0,
@@ -280,7 +362,7 @@ func (g *Game) dealWithCollisions () {
 				})
 				var stuff = g.MapInfo.Stuffs[stuff_index]
 				// update the acceleration of two player
-				var new_acceleration_a = AccelerationFormat {
+				var new_acceleration_a = util.AccelerationFormat {
 					Up: 0.0,
 					Down: 0.0,
 					Left: 0.0,
@@ -291,7 +373,7 @@ func (g *Game) dealWithCollisions () {
 				new_acceleration_a.Left = player_session_a.Player.GameObject.Acceleration.Left + stuff.Acceleration.Left
 				new_acceleration_a.Right = player_session_a.Player.GameObject.Acceleration.Right + stuff.Acceleration.Right
 
-				var new_acceleration_s = AccelerationFormat {
+				var new_acceleration_s = util.AccelerationFormat {
 					Up: 0.0,
 					Down: 0.0,
 					Left: 0.0,
@@ -316,7 +398,7 @@ func (g *Game) dealWithCollisions () {
 				})
 				var trap = g.MapInfo.Traps[trap_index]
 				// update the acceleration of two player
-				var new_acceleration_a = AccelerationFormat {
+				var new_acceleration_a = util.AccelerationFormat {
 					Up: 0.0,
 					Down: 0.0,
 					Left: 0.0,
@@ -345,24 +427,13 @@ func (g *Game) dealWithCollisions () {
 					return g.MapInfo.Bullets[i].GameObject.Id == target.GameObject.Id
 				})
 				var bullet = g.MapInfo.Bullets[bullet_index]
-				// update the acceleration of two player
-				var new_acceleration_a = AccelerationFormat {
-					Up: 0.0,
-					Down: 0.0,
-					Left: 0.0,
-					Right: 0.0,
-				}
-				new_acceleration_a.Up = player_session_a.Player.GameObject.Acceleration.Up * (-1.0)
-				new_acceleration_a.Down = player_session_a.Player.GameObject.Acceleration.Down * (-1.0)
-				new_acceleration_a.Left = player_session_a.Player.GameObject.Acceleration.Left * (-1.0)
-				new_acceleration_a.Right = player_session_a.Player.GameObject.Acceleration.Right * (-1.0)
-
-				player_session_a.Player.GameObject.Acceleration = new_acceleration_a
 				
 				// give the collision damage
-				player_session_a.Player.Attr.HP -= float64(bullet.Damage) * 5.0
-				// remove the bullet
-				g.MapInfo.Bullets = append(g.MapInfo.Bullets[:bullet_index], g.MapInfo.Bullets[bullet_index+1:]...)
+				if (bullet.Owner == player_session_a.Player.Attr.Name) {
+					player_session_a.Player.Attr.HP -= float64(bullet.Damage) * 5.0
+					// remove the bullet
+					g.MapInfo.Bullets = append(g.MapInfo.Bullets[:bullet_index], g.MapInfo.Bullets[bullet_index+1:]...)
+				}
 				break;
 		}
 	}

@@ -5,8 +5,19 @@ import (
 	"github.com/gorilla/websocket"
 	"time"
 	"log"
+	"math"
+	"sync"
 )
 
+/**
+ * MoveDirection:
+ * The struct to keep the player current moving direction.
+ *
+ * @property {bool} Up 									- all dieps in player views
+ * @property {bool} Down								- all stuffs in player views
+ * @property {bool} Left								- all bullets in player views
+ * @property {bool} Right								- all traps in player views
+ */
 type MoveDirection struct {
 	Up bool
 	Down bool
@@ -14,58 +25,155 @@ type MoveDirection struct {
 	Right bool
 }
 
-// define PlayerSession struct
+/**
+ * PlayerView:
+ * The struct to keep all instance on screen. It will be re-compute in every frame.
+ *
+ * @property {[]*GameObject} Dieps 			- all dieps in player views
+ * @property {[]*GameObject} Stuffs			- all stuffs in player views
+ * @property {[]*GameObject} Bullets		- all bullets in player views
+ * @property {[]*GameObject} Traps			- all traps in player views
+ */
+type PlayerView struct {
+	Dieps  []*GameObject // deips in view
+	Stuffs []*GameObject // stuffs in view
+	Bullets []*GameObject // bullet in view
+	Traps []*GameObject // trap in view
+}
+
+/**
+ * PlayerSession:
+ * Every player owns one session, it will keep the neccessary reference to the player.
+ *
+ * @property {*websocket.Conn} Socket 	- websocket client connection instance
+ * @property {*Game} Game 							- game room instance
+ * @property {chan bool} MBus 					- the message channel between ping routine and all other routines
+ * @property {bool} Alive 							- the status of the connection
+ * @property {*Player} Player						- the player instance
+ * @property {*PlayerView} View					- the view instance
+ * @property {MoveDirection} Moving			- the current moving direction of player
+ * @property {sync.Mutex} ControlLock		- the mutex lock to prevent from data race in routines
+ */
 type PlayerSession struct {
 	Socket *websocket.Conn
 	Game *Game
+	MBus chan bool
+	Alive bool
 	Player *Player // player
-	Dieps  []*Diep // deips in view
-	Stuffs []*Stuff // stuffs in view
-	Bullets []*Bullet // bullet in view
-	Traps []*Trap // trap in view
-	Direction Point // shoot angle
+	View *PlayerView
 	Moving MoveDirection
+	ControlLock sync.Mutex
 }
-// define CommandpParams struct
+
+/**
+ * CommandParams:
+ * The definition of message param
+ */
 type CommandParams map[string]interface{}
-// define PlayerSessionCommand struct
+
+/**
+ * PlayerSessionCommand:
+ * The definition of player message format
+ *
+ * @property {string} Method					 	- the action type of the player
+ * @property {CommandParams} Params			- the option of the action
+ */
 type PlayerSessionCommand struct {
 	Method string
 	Params CommandParams
 }
 
-// define the NewSession function in game package
-func NewSession(ws *websocket.Conn, player *Player, game *Game) *PlayerSession {
-	// init the session
-	ps := PlayerSession {
-		Socket: ws,
-		Player: player,
-		Game: game,
-	}
-	// parallel execute receiver and loop function
-	go ps.receiver()
-	go ps.loop(&game.MapInfo)
-	return &ps
-}
-// define the receiver function in PlayerSession pointer
+/**
+ * <*PlayerSession>.receiver:
+ * The function in PlayerSession to keep receiving message from client.
+ */
 func (ps *PlayerSession) receiver() {
 	// keep read the player message
 	for {
+		if (!ps.Alive) {
+			break
+		}
 		_, command, err := ps.Socket.ReadMessage()
-		if err != nil {
-			log.Fatal(err)
+		if (err != nil) {
 			break
 		}
 		var player_command PlayerSessionCommand = PlayerSessionCommand{}
 		err = json.Unmarshal(command, &player_command)
 
-		ps.serverCommand(player_command)
+		ps.serveCommand(player_command)
 	}
-	ps.Socket.Close()
 }
-// define the serverCommand function in PlayerSession pointer
-func (ps *PlayerSession) serverCommand(command PlayerSessionCommand) {
-	log.Println(command.Params["Value"])
+
+/**
+ * <*PlayerSession>.loop:
+ * The function in PlayerSession to keep sending the player information in every frame.
+ */
+func (ps *PlayerSession) loop() {
+	var stepDelay int32 = int32(1000 / ps.Game.Framerate)
+	for {
+		time.Sleep(time.Duration(stepDelay) * time.Millisecond)
+		// lock the Alive attr in player session
+		ps.ControlLock.Lock()
+		if (!ps.Alive) {
+			break;
+		}
+		// unlock the Alive attr in player session
+		ps.ControlLock.Unlock()
+		ps.sendPlayerState()
+	}
+}
+
+/**
+ * <*PlayerSession>.ping:
+ * The function in PlayerSession to keep sending ping message to client verify connection.
+ */
+func (ps *PlayerSession) ping() {
+	// use local variable here
+	var alive bool = false
+	for {
+		// send ping message to check connection alive first
+		ps.sendPingMsg()
+		// set alive false first
+		alive = false
+		// use chan bool and routine to count timeout
+		timeout := make (chan bool, 1)
+		go func () {
+			time.Sleep(time.Second * 1)
+			timeout <- true
+		}()
+		// catch channel message
+		select {
+			case  <- timeout:
+				if (!alive) {
+					log.Printf("Player %s disconnect", ps.Player.Attr.Name)
+					ps.Socket.Close()
+					// lock the Alive attr in player session
+					ps.ControlLock.Lock()
+					ps.Alive = false
+					// unlock the Alive attr in player session
+					ps.ControlLock.Unlock()
+					break
+				}
+			case <- ps.MBus:
+				// set the alive vairable true if receive any message fron client
+				alive = true
+				break
+		}
+		if (!alive) {
+			break
+		}
+	}
+}
+
+/**
+ * <*PlayerSession>.serveCommand:
+ * The function in PlayerSession to deal with the message from client in PlayerSessionCommand format.
+ *
+ * @param {PlayerSessionCommand} command	- the command from client
+ */
+func (ps *PlayerSession) serveCommand(command PlayerSessionCommand) {
+	// send the connection status through channel
+	ps.MBus <- true
 	// define player method with correspond action
 	switch command.Method {
 		case "moveUp":
@@ -81,6 +189,7 @@ func (ps *PlayerSession) serverCommand(command PlayerSessionCommand) {
 			ps.Moving.Right = command.Params["value"].(bool)
 			break
 		case "shoot":
+			ps.Shoot(command.Params["x"].(float64), command.Params["y"].(float64), int(command.Params["number"].(float64)))
 			break
 		case "evaluation":
 			ps.Evaluation(command.Params["type"].(string))
@@ -88,88 +197,122 @@ func (ps *PlayerSession) serverCommand(command PlayerSessionCommand) {
 	}
 }
 
+/**
+ * <*PlayerSession>.sendClientCommand:
+ * The function in PlayerSession to send message to client in PlayerSessionCommand format.
+ *
+ * @param {PlayerSessionCommand} command	- the message sening to client
+ */
 func (ps *PlayerSession) sendClientCommand(command PlayerSessionCommand) {
 	message_b, _ := json.Marshal(command)
+	ps.ControlLock.Lock()
 	err := ps.Socket.WriteMessage(websocket.TextMessage, message_b)
-	if err != nil {
+	if (err != nil) {
 		ps.Socket.Close()
 	}
+	ps.ControlLock.Unlock()
 }
 
-func (ps *PlayerSession) loop(m *Map) {
-	var stepDelay int32 = 20
-	for {
-		time.Sleep(time.Duration(stepDelay) * time.Millisecond)
-		ps.sendPlayerState(m)
-	}
-}
-
-func (ps *PlayerSession) sendPlayerState(m *Map) {
+/**
+ * <*PlayerSession>.sendPlayerState:
+ * The function in PlayerSession to send player status to client in PlayerSessionCommand format.
+ */
+func (ps *PlayerSession) sendPlayerState() {
 	// update the player view of all diep
-	ps.updateViewInfo(m)
+	ps.updateView()
 	// send all diep position to client
 	ps.sendClientCommand(PlayerSessionCommand {
 		Method: "playerSession",
 		Params: CommandParams {
 			"player": ps.Player,
-			"dieps": ps.Dieps,
-			"stuffs": ps.Stuffs,
-			"traps": ps.Traps,
+			"dieps": ps.View.Dieps,
+			"stuffs": ps.View.Stuffs,
+			"traps": ps.View.Traps,
+			"bullets": ps.View.Bullets,
 		},
 	})
 }
 
-// define the updateViewInfo function in PlayerSession Pointer
-func (ps *PlayerSession) updateViewInfo (m *Map) {
+/**
+ * <*PlayerSession>.sendPingMsg:
+ * The function in PlayerSession to send ping message to client in PlayerSessionCommand format.
+ */
+func (ps *PlayerSession) sendPingMsg() {
+	ps.sendClientCommand(PlayerSessionCommand {
+		Method: "ping",
+		Params: CommandParams {},
+	})
+}
+
+/**
+ * <*PlayerSession>.updateView:
+ * The function in PlayerSession to compute the view information in every frame.
+ */
+func (ps *PlayerSession) updateView () {
 	// get the view width and height
-	var vwL = ps.Player.GameObject.Position.X - 1920 / 2
-	if (vwL < 0) {
-		vwL = 0
-	}
-	var vwU = ps.Player.GameObject.Position.X + 1920 / 2
-	if (vwU > 8192) {
-		vwU = 8192
-	}
-	var vhL = ps.Player.GameObject.Position.Y - 1080 / 2
-	if (vhL < 0) {
-		vhL = 0
-	}
-	var vhU = ps.Player.GameObject.Position.Y + 1080 / 2
-	if (vhU > 8192) {
-		vhU = 8192
-	}
+	var vwL = math.Max(ps.Player.GameObject.Position.X - 1920 / 2, 0)
+	var vwU = math.Min(ps.Player.GameObject.Position.X + 1920 / 2, ps.Game.Field.W)
+	var vhL = math.Max(ps.Player.GameObject.Position.Y - 1080 / 2, 0)
+	var vhU = math.Min(ps.Player.GameObject.Position.Y + 1080 / 2, ps.Game.Field.H)
 	// empty all slice in player session
-	ps.Dieps = []*Diep {}
-	ps.Stuffs = []*Stuff {}
-	ps.Traps = []*Trap {}
-	ps.Bullets = []*Bullet {}
+	ps.View.Dieps = []*GameObject {}
+	ps.View.Stuffs = []*GameObject {}
+	ps.View.Traps = []*GameObject {}
+	ps.View.Bullets = []*GameObject {}
 	// loop the map info and append the diep/stuff/trap in view
-	for _, diep := range m.Dieps {
+	for _, diep := range ps.Game.MapInfo.Dieps {
 		if (diep.GameObject.Position.X >= vwL) && (diep.GameObject.Position.X <= vwU) &&
 			(diep.GameObject.Position.Y >= vhL) && (diep.GameObject.Position.Y <= vhU) {
-			ps.Dieps = append(ps.Dieps, diep)
+			ps.View.Dieps = append(ps.View.Dieps, &diep.GameObject)
 		}
 	}
-	for _, stuff := range m.Stuffs {
+	for _, stuff := range ps.Game.MapInfo.Stuffs {
 		if (stuff.GameObject.Position.X >= vwL) && (stuff.GameObject.Position.X <= vwU) &&
 			(stuff.GameObject.Position.Y >= vhL) && (stuff.GameObject.Position.Y <= vhU) {
-			ps.Stuffs = append(ps.Stuffs, stuff)
+			ps.View.Stuffs = append(ps.View.Stuffs, &stuff.GameObject)
 		}
 	}
-	for _, trap := range m.Traps {
+	for _, trap := range ps.Game.MapInfo.Traps {
 		if (trap.GameObject.Position.X >= vwL) && (trap.GameObject.Position.X <= vwU) &&
 			(trap.GameObject.Position.Y >= vhL) && (trap.GameObject.Position.Y <= vhU) {
-			ps.Traps = append(ps.Traps, trap)
+			ps.View.Traps = append(ps.View.Traps, &trap.GameObject)
 		}
 	}
-	for _, bullet := range m.Bullets {
+	for _, bullet := range ps.Game.MapInfo.Bullets {
 		if (bullet.GameObject.Position.X >= vwL) && (bullet.GameObject.Position.X <= vwU) &&
 			(bullet.GameObject.Position.Y >= vhL) && (bullet.GameObject.Position.Y <= vhU) {
-			ps.Bullets = append(ps.Bullets, bullet)
+			ps.View.Bullets = append(ps.View.Bullets, &bullet.GameObject)
 		}
 	}
 }
 
+/**
+ * <*PlayerSession>.Shoot:
+ * The function in PlayerSession to shot.
+ *
+ * @param {float64} x										- the volume of angle project on x
+ * @param {float64} y										- the volume of angle project on y
+ * @param {int} number									- the bullet number in this shoot
+ */
+func (ps *PlayerSession) Shoot (x, y float64, number int) {
+	for i := 0; i < number; i++ {
+		var new_bullet Bullet
+		new_bullet.Position.X = ps.Player.Position.X
+		new_bullet.Position.Y = ps.Player.Position.Y
+		new_bullet.Velocity.X = x * float64(ps.Player.Status.BulletSpeed + 10) / ratio
+		new_bullet.Velocity.Y = y * float64(ps.Player.Status.BulletSpeed + 10) / ratio
+		new_bullet.Owner = ps.Player.Id
+		new_bullet.Existence = (ps.Player.Status.BulletPenetration - 1) * 40 +  250
+		ps.Game.MapInfo.Bullets = append(ps.Game.MapInfo.Bullets, &new_bullet)
+	}
+}
+
+/**
+ * <*PlayerSession>.Evaluation:
+ * The function in PlayerSession to evaluation player diep.
+ *
+ * @param {string} type_str							- the chosen attribute of player in this evaluation
+ */
 func (ps *PlayerSession) Evaluation (type_str string) {
 	switch type_str {
 		case "MaxHP":

@@ -6,12 +6,12 @@ import (
 	"os"
 	"strconv"
 	"encoding/json"
-	"github.com/f26401004/Lifegamer-Diep-backend/src/utils"
+	"github.com/f26401004/Lifegamer-Diep-backend/src/util"
 )
 
 // define the NewField function in game package
-func NewField (width, height float64) *Size {
-	field := Size {
+func NewField (width, height float64) *util.Size {
+	field := util.Size {
 		W: width,
 		H: height,
 	}
@@ -32,21 +32,21 @@ func NewStuff() *Stuff {
 	var type_num = int(rand.Float64() * 4 + 1)
 	var type_attr = stuffType[strconv.Itoa(type_num)].(StuffAttribute)
 
-	uuid, _ := utils.NewUUID()
+	uuid, _ := util.NewUUID()
 	var new_stuff = Stuff {
 		GameObject: GameObject {
 			Id: uuid,
-			Position: Point {
+			Position: util.Point {
 				X: rand.Float64() * 1023,
 				Y: rand.Float64() * 1023,
 			},
 			Mass: 1.0,
 			Radius: 50.0,
-			Velocity: VelocityFormat {
+			Velocity: util.VelocityFormat {
 				X: 0.0,
 				Y: 0.0,
 			},
-			Acceleration: AccelerationFormat {
+			Acceleration: util.AccelerationFormat {
 				Up: 0.0,
 				Down: 0.0,
 				Left: 0.0,

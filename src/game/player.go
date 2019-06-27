@@ -3,7 +3,7 @@ package game
 import (
 	"time"
 	"math/rand"
-	"github.com/f26401004/Lifegamer-Diep-backend/src/utils"
+	"github.com/f26401004/Lifegamer-Diep-backend/src/util"
 )
 
 type PlayerAttribute struct {
@@ -32,21 +32,21 @@ type Player struct {
 
 // define the NewPlayer function in game package
 func NewPlayer (name string) *Player {
-	uuid, _ := utils.NewUUID()
+	uuid, _ := util.NewUUID()
 	var new_player = Player {
 		GameObject: GameObject {
 			Id: uuid,
-			Position: Point {
+			Position: util.Point {
 				X: rand.Float64() * 1023,
 				Y: rand.Float64() * 1023,
 			},
 			Mass: 1.0,
 			Radius: 50.0,
-			Velocity: VelocityFormat {
+			Velocity: util.VelocityFormat {
 				X: 0.0,
 				Y: 0.0,
 			},
-			Acceleration: AccelerationFormat {
+			Acceleration: util.AccelerationFormat {
 				Up: 0.0,
 				Down: 0.0,
 				Left: 0.0,
