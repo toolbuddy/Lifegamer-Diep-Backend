@@ -14,14 +14,36 @@ const friction = 0.97
 const ratio = 1.5
 
 /**
+ * Game:
+ * The struct of game instance.
+ *
+ * @property {string} Name					 													- the unique identity between games
+ * @property {[]*PlayerSessions} Sessions											- the slice of player sessions in the game
+ * @property {Map} MapInfo																		- the map information
+ * @property {chan *PlayerSessions} JoinChannel								- the channel of joining player
+ * @property {*util.Size} Field																- the field information of the game
+ * @property {float64} Framerate															- the framerate of the game
+ */
+ type Game struct {
+	Name string
+	Sessions []*PlayerSession
+	MapInfo Map
+	JoinChannel chan *PlayerSession
+	Field *util.Size
+	Framerate float64
+}
+
+/**
  * <game>.NewGame:
  * The function to new a game instance.
  *
  * @param {string} name																				- the unique name of the game room
+ * @param {float64} width																			- the width of the game field
+ * @param {float64} height																		- the height of the game field
  *
  * @return {*Game}
  */
-func NewGame(name string) *Game {
+func NewGame(name string, width, height float64) *Game {
 	game := Game {
 		Name: name,
 		Sessions: []*PlayerSession {},
@@ -31,7 +53,10 @@ func NewGame(name string) *Game {
 			Stuffs: []*Stuff {},
 			Traps: []*Trap {},
 		},
-		Field: NewField(8192, 8192),
+		Field: &util.Size {
+			W: width,
+			H: height,
+		},
 		Framerate: 50.0,
 	}
 	go game.runListen()
@@ -63,6 +88,58 @@ func NewGame(name string) *Game {
 	go ps.loop()
 	go ps.ping()
 	return &ps
+}
+
+/**
+ * <game>.NewPlayer:
+ * The function to new a player.
+ *
+ * @param {stirng} name									- the name of the player
+ *
+ * @return {*Player}
+ */
+func NewPlayer (name string) *Player {
+	uuid, _ := util.NewUUID()
+	var new_player = Player {
+		GameObject: GameObject {
+			Id: uuid,
+			Position: util.Point {
+				X: rand.Float64() * 1023,
+				Y: rand.Float64() * 1023,
+			},
+			Mass: 1.0,
+			Radius: 50.0,
+			Velocity: util.VelocityFormat {
+				X: 0.0,
+				Y: 0.0,
+			},
+			Acceleration: util.AccelerationFormat {
+				Up: 0.0,
+				Down: 0.0,
+				Left: 0.0,
+				Right: 0.0,
+			},
+		},
+		Attr: PlayerAttribute {
+			Name: name,
+			CreatedAt: time.Now(),
+			Score: 0,
+			Level: 1,
+			EXP: 0,
+			HP: 100,
+		},
+		Status: PlayerStatus {
+			MaxHP: 100,
+			HPRegeneration: 1,
+			MoveSpeed: 1,
+			BulletSpeed: 1,
+			BulletPenetration: 1,
+			BulletReload: 1,
+			BulletDamage: 1,
+			BodyDamage: 1,
+		},
+	}
+	return &new_player
 }
 
 /**

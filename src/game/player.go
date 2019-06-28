@@ -6,6 +6,17 @@ import (
 	"github.com/f26401004/Lifegamer-Diep-backend/src/util"
 )
 
+/**
+ * PlayerAttribute:
+ * The struct of player attribute.
+ *
+ * @property {string} Name					 													- the name of the player
+ * @property {time.Time} CreatedAt														- the join time of the player
+ * @property {int} Score																			- the total score of the player
+ * @property {int} Level																			- the level of the player
+ * @property {int} EXP																				- the current EXP of the player
+ * @property {float64} HP																			- the current HP of the player
+ */
 type PlayerAttribute struct {
 	Name string
 	CreatedAt time.Time
@@ -14,6 +25,20 @@ type PlayerAttribute struct {
 	EXP int
 	HP float64
 }
+
+/**
+ * PlayerStatus:
+ * The struct of player status.
+ *
+ * @property {int} MaxHP					 														- the max HP level of the player
+ * @property {int} HPRegeneration															- the HP eegeneration level of the player
+ * @property {int} MoveSpeed																	- the move speed level of the player
+ * @property {int} BulletSpeed																- the bullet speed level of the player
+ * @property {int} BulletPenetration													- the bullet penetration level of the player
+ * @property {int} BulletReload																- the bullet reload level of the player
+ * @property {int} BulletDamage																- the bullet damage level of the player
+ * @property {int} BodyDamage																	- the body damage level of the player
+ */
 type PlayerStatus struct {
 	MaxHP int
 	HPRegeneration int
@@ -24,53 +49,17 @@ type PlayerStatus struct {
 	BulletDamage int
 	BodyDamage int
 }
+
+/**
+ * Player:
+ * The struct of player.
+ *
+ * @property {GameObject} 					 													- the game object struct of the player
+ * @property {PlayerAttribute} Attr														- the struct of the player attribute
+ * @property {PlayerStatus} Status														- the struct of the player status
+ */
 type Player struct {
 	GameObject
 	Attr PlayerAttribute
 	Status PlayerStatus
-}
-
-// define the NewPlayer function in game package
-func NewPlayer (name string) *Player {
-	uuid, _ := util.NewUUID()
-	var new_player = Player {
-		GameObject: GameObject {
-			Id: uuid,
-			Position: util.Point {
-				X: rand.Float64() * 1023,
-				Y: rand.Float64() * 1023,
-			},
-			Mass: 1.0,
-			Radius: 50.0,
-			Velocity: util.VelocityFormat {
-				X: 0.0,
-				Y: 0.0,
-			},
-			Acceleration: util.AccelerationFormat {
-				Up: 0.0,
-				Down: 0.0,
-				Left: 0.0,
-				Right: 0.0,
-			},
-		},
-		Attr: PlayerAttribute {
-			Name: name,
-			CreatedAt: time.Now(),
-			Score: 0,
-			Level: 1,
-			EXP: 0,
-			HP: 100,
-		},
-		Status: PlayerStatus {
-			MaxHP: 100,
-			HPRegeneration: 1,
-			MoveSpeed: 1,
-			BulletSpeed: 1,
-			BulletPenetration: 1,
-			BulletReload: 1,
-			BulletDamage: 1,
-			BodyDamage: 1,
-		},
-	}
-	return &new_player
 }

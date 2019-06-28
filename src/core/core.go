@@ -20,6 +20,6 @@ func (app App) Run() {
 		log.Fatal("Error loading config:", err)
 	}
 
-	app.Games = append(app.Games, game.NewGame("main_game") )
+	app.Games = append(app.Games, game.NewGame("main_game", 8192, 8192) )
 	app.runServer()
 }

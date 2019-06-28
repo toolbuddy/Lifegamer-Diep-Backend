@@ -43,23 +43,3 @@ type GameObjectInterface interface {
 func (g *GameObject) GetId() string {
 	return g.Id
 }
-
-/**
- * Game:
- * The struct of game instance.
- *
- * @property {string} Name					 													- the unique identity between games
- * @property {[]*PlayerSessions} Sessions											- the slice of player sessions in the game
- * @property {Map} MapInfo																		- the map information
- * @property {chan *PlayerSessions} JoinChannel								- the channel of joining player
- * @property {*util.Size} Field																- the field information of the game
- * @property {float64} Framerate															- the framerate of the game
- */
-type Game struct {
-	Name string
-	Sessions []*PlayerSession
-	MapInfo Map
-	JoinChannel chan *PlayerSession
-	Field *util.Size
-	Framerate float64
-}
