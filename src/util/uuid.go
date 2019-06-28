@@ -6,6 +6,12 @@ import (
 	"io"
 )
 
+/**
+ * <util>.NewUUID:
+ * The function to new a uuid stirng.
+ *
+ * @return {string, error}
+ */
 func NewUUID() (string, error) {
 	uuid := make([]byte, 16)
 	n, err := io.ReadFull(rand.Reader, uuid)

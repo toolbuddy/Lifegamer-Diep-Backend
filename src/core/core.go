@@ -6,13 +6,26 @@ import (
 	"github.com/f26401004/Lifegamer-Diep-backend/src/game"
 )
 
-// define the App struct
+/**
+ * App:
+ * The struct to present the app configuration.
+ *
+ * @property {*Configuration} Configuration 								- the configuration struct of the app
+ * @property {[]*game.Game} Games														- the slice of the games of the app
+ */
 type App struct {
 	Configuration *Configuration
 	Games []*game.Game
 }
-// define the Run function in App
-func (app App) Run() {
+
+
+/**
+ * <*App>.Run:
+ * The function in App to run the app.
+ *
+ * @return {nil}
+ */
+func (app *App) Run() {
 	fmt.Println("core run...")
 	app.Configuration = &Configuration{}
 	err := app.Configuration.loadFromFile()

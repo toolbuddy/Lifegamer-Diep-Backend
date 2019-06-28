@@ -9,17 +9,42 @@ import (
 	"github.com/f26401004/Lifegamer-Diep-backend/src/game"
 )
 
-// define the serverHandler struct
+/**
+ * serverHandler:
+ * The struct to bind the server handler with app
+ *
+ * @property {*App} app 																												- the app reference
+ * @property {func(*App, http.ResponseWriter, *http.Request)} handler						- the function to handle the join request
+ */
 type serverHandler struct {
 	app *App
 	handler func(*App, http.ResponseWriter, *http.Request)
 }
 
-// define the ServeHTTP function in serverHandler
-func (sh serverHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+/**
+ * <*serverHandler>.ServeHTTP:
+ * The function in serverHandler to handle the request from client
+ *
+ * @param {http.ResponseWriter} w 																							- the response writer of current request
+ * @param {*http.Request} r																											- the current request
+ *
+ * @return {nil}
+ */
+func (sh *serverHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	sh.handler(sh.app, w, r)
 }
-// define the gameWebsocketHandler in core package
+
+
+/**
+ * <core>.gameWebsocketHandler:
+ * The function to handle the request upgrade to websocket from client
+ *
+ * @param {*App} app 																														- the app reference
+ * @param {http.ResponseWriter} w																								- the response writer of current request
+ * @param {*http.Request} r																											- the current request
+ *
+ * @return {nil}
+ */
 func gameWebsocketHandler(app *App, w http.ResponseWriter, r *http.Request) {
 	// get the websocket instance
 	ws, err := websocket.Upgrade(w, r, nil, 1024, 1024)
@@ -50,12 +75,25 @@ func gameWebsocketHandler(app *App, w http.ResponseWriter, r *http.Request) {
 	log.Printf("Player %s joined to game", queries["name"][0])
 }
 
-// define the staticHandler function in core package
+/**
+ * <core>.staticHandler:
+ * The function to handle the static file request
+ *
+ * @param {http.ResponseWriter} w 																							- the response writer of current request
+ * @param {*http.Request} r																											- the current request
+ *
+ * @return {nil}
+ */
 func staticHandler (w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "static/dist/" + r.URL.Path[1:])
 }
 
-// define runServer in App
+/**
+ * <App>.runServer:
+ * The function in App to run server
+ *
+ * @return {nil}
+ */
 func (app App) runServer () {
 	// handle the static file in url "/"
 	http.HandleFunc("/", staticHandler)

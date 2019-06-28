@@ -2,8 +2,6 @@ package game
 
 import (
 	"time"
-	"math/rand"
-	"github.com/f26401004/Lifegamer-Diep-backend/src/util"
 )
 
 /**
