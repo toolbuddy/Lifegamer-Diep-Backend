@@ -92,6 +92,8 @@ func (ps *PlayerSession) receiver() {
 /**
  * <*PlayerSession>.loop:
  * The function in PlayerSession to keep sending the player information in every frame.
+ *
+ * @return {nil}
  */
 func (ps *PlayerSession) loop() {
 	var stepDelay int32 = int32(1000 / ps.Game.Framerate)
@@ -111,6 +113,8 @@ func (ps *PlayerSession) loop() {
 /**
  * <*PlayerSession>.ping:
  * The function in PlayerSession to keep sending ping message to client verify connection.
+ *
+ * @return {nil}
  */
 func (ps *PlayerSession) ping() {
 	// use local variable here
@@ -155,6 +159,8 @@ func (ps *PlayerSession) ping() {
  * The function in PlayerSession to deal with the message from client in PlayerSessionCommand format.
  *
  * @param {PlayerSessionCommand} command	- the command from client
+ *
+ * @return {nil}
  */
 func (ps *PlayerSession) serveCommand(command PlayerSessionCommand) {
 	// send the connection status through channel
@@ -187,6 +193,8 @@ func (ps *PlayerSession) serveCommand(command PlayerSessionCommand) {
  * The function in PlayerSession to send message to client in PlayerSessionCommand format.
  *
  * @param {PlayerSessionCommand} command	- the message sening to client
+ *
+ * @return {nil}
  */
 func (ps *PlayerSession) sendClientCommand(command PlayerSessionCommand) {
 	message_b, _ := json.Marshal(command)
@@ -201,6 +209,8 @@ func (ps *PlayerSession) sendClientCommand(command PlayerSessionCommand) {
 /**
  * <*PlayerSession>.sendPlayerState:
  * The function in PlayerSession to send player status to client in PlayerSessionCommand format.
+ *
+ * @return {nil}
  */
 func (ps *PlayerSession) sendPlayerState() {
 	// update the player view of all diep
@@ -221,6 +231,8 @@ func (ps *PlayerSession) sendPlayerState() {
 /**
  * <*PlayerSession>.sendPingMsg:
  * The function in PlayerSession to send ping message to client in PlayerSessionCommand format.
+ *
+ * @return {nil}
  */
 func (ps *PlayerSession) sendPingMsg() {
 	ps.sendClientCommand(PlayerSessionCommand {
@@ -232,6 +244,8 @@ func (ps *PlayerSession) sendPingMsg() {
 /**
  * <*PlayerSession>.updateView:
  * The function in PlayerSession to compute the view information in every frame.
+ *
+ * @return {nil}
  */
 func (ps *PlayerSession) updateView () {
 	// get the view width and height
@@ -278,6 +292,8 @@ func (ps *PlayerSession) updateView () {
  * @param {float64} x										- the volume of angle project on x
  * @param {float64} y										- the volume of angle project on y
  * @param {int} number									- the bullet number in this shoot
+ *
+ * @return {nil}
  */
 func (ps *PlayerSession) Shoot (x, y float64, number int) {
 	for i := 0; i < number; i++ {
@@ -297,6 +313,8 @@ func (ps *PlayerSession) Shoot (x, y float64, number int) {
  * The function in PlayerSession to evaluation player diep.
  *
  * @param {string} type_str							- the chosen attribute of player in this evaluation
+ *
+ * @return {nil}
  */
 func (ps *PlayerSession) Evaluation (type_str string) {
 	switch type_str {

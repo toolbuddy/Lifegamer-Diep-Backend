@@ -9,63 +9,18 @@ import (
 	"github.com/f26401004/Lifegamer-Diep-backend/src/util"
 )
 
-
-type GameObject struct {
-	Id string
-	Position util.Point
-	Mass float64
-	Radius float64
-	Velocity util.VelocityFormat
-	Acceleration util.AccelerationFormat
-}
-
-type GameObjectInterface interface {
-	GetId() string
-}
-
-func (g *GameObject) GetId() string {
-	return g.Id
-}
-
-
 // define the game friction
 const friction = 0.97
 const ratio = 1.5
-// define game object struct
-type Game struct {
-	Name string
-	Sessions []*PlayerSession
-	MapInfo Map
-	JoinChannel chan *PlayerSession
-	Field *util.Size
-	Framerate float64
-}
 
 /**
- * <game>.NewSession:
- * The function to new a player session.
+ * <game>.NewGame:
+ * The function to new a game instance.
  *
- * @param {*websocket.Conn} ws					- the websocket client instance
- * @param {*Player} player							- the player instance
- * @param {*Game} game									- the game instance
+ * @param {string} name																				- the unique name of the game room
+ *
+ * @return {*Game}
  */
- func NewSession(ws *websocket.Conn, player *Player, game *Game) *PlayerSession {
-	// init the session
-	ps := PlayerSession {
-		Socket: ws,
-		Player: player,
-		Game: game,
-		MBus: make (chan bool, 1),
-		Alive: true,
-	}
-	// parallel execute receiver, loop and ping function
-	go ps.receiver()
-	go ps.loop()
-	go ps.ping()
-	return &ps
-}
-
-
 func NewGame(name string) *Game {
 	game := Game {
 		Name: name,
@@ -84,7 +39,48 @@ func NewGame(name string) *Game {
 	return &game
 }
 
-// define the runListen function in Game struct pointer
+/**
+ * <game>.NewSession:
+ * The function to new a player session.
+ *
+ * @param {*websocket.Conn} ws					- the websocket client instance
+ * @param {*Player} player							- the player instance
+ * @param {*Game} game									- the game instance
+ *
+ * @return {*PlayerSession}
+ */
+ func NewSession(ws *websocket.Conn, player *Player, game *Game) *PlayerSession {
+	// init the session
+	ps := PlayerSession {
+		Socket: ws,
+		Player: player,
+		Game: game,
+		MBus: make (chan bool, 1),
+		Alive: true,
+	}
+	// parallel execute receiver, loop and ping function
+	go ps.receiver()
+	go ps.loop()
+	go ps.ping()
+	return &ps
+}
+
+/**
+ * <game>.GetObjectId:
+ * The function to get game object id through GameObjectInterface.
+ *
+ * @return {string}
+ */
+ func GetObjectId (m GameObjectInterface) string {
+	return m.GetId()
+}
+
+/**
+ * <*Game>.runListen:
+ * The function in Game to listen the join request from server.
+ *
+ * @return {nil}
+ */
 func (g *Game) runListen () {
 	for {
 		// get the current join player session from channel
@@ -94,7 +90,24 @@ func (g *Game) runListen () {
 		log.Printf("Player %s has joined\n", p_sess.Player.Attr.Name)
 	}
 }
-// define the loop function in Game struct pointer
+
+/**
+ * <*Game>.JoinPlayer:
+ * The function in Game to send session to the channel.
+ *
+ * @return {string}
+ */
+ func (g *Game) JoinPlayer (session *PlayerSession) {
+	// add the player session to channel
+	g.JoinChannel <- session
+}
+
+/**
+ * <*Game>.loop:
+ * The function in Game to keep computing the all movement of the item in the game.
+ *
+ * @return {nil}
+ */
 func (g *Game) loop () {
 	for {
 		time.Sleep(time.Duration(1000.0 / g.Framerate) * time.Millisecond)
@@ -114,6 +127,12 @@ func (g *Game) loop () {
 	}
 }
 
+/**
+ * <*Game>.updatePhysicItems:
+ * The function in Game to computing all game object movement.
+ *
+ * @return {nil}
+ */
 func (g *Game) updatePhysicItems() {
 	// update the player movement
 	for _, ps := range g.Sessions {
@@ -188,7 +207,12 @@ func (g *Game) updatePhysicItems() {
 	}
 }
 
-// define the detectDiepCollision in game package
+/**
+ * <*Game>.detectDeipCollision:
+ * The function in Game to detect if there is collision between two diep.
+ *
+ * @return {nil}
+ */
 func (g *Game) detectDeipCollision() {
 	for _, diep_a := range g.MapInfo.Dieps {
 		for _, diep_b := range g.MapInfo.Dieps {
@@ -221,6 +245,13 @@ func (g *Game) detectDeipCollision() {
 		}
 	}
 }
+
+/**
+ * <*Game>.detectStuffCollision:
+ * The function in Game to detect if there is collision between diep and stuff.
+ *
+ * @return {nil}
+ */
 func (g *Game) detectStuffCollision () {
 	for _, diep := range g.MapInfo.Dieps {
 		for _, stuff := range g.MapInfo.Stuffs {
@@ -250,6 +281,13 @@ func (g *Game) detectStuffCollision () {
 		}
 	}
 }
+
+/**
+ * <*Game>.detectTrapCollision:
+ * The function in Game to detect if there is collision between diep and trap.
+ *
+ * @return {nil}
+ */
 func (g *Game) detectTrapCollision () {
 	for _, diep := range g.MapInfo.Dieps {
 		for _, trap := range g.MapInfo.Traps {
@@ -280,6 +318,13 @@ func (g *Game) detectTrapCollision () {
 		}
 	}
 }
+
+/**
+ * <*Game>.detectBulletCollision:
+ * The function in Game to detect if there is collision between diep and bullet.
+ *
+ * @return {nil}
+ */
 func (g *Game) detectBulletCollision () {
 	for _, diep := range g.MapInfo.Dieps {
 		for _, bullet := range g.MapInfo.Bullets {
@@ -311,6 +356,12 @@ func (g *Game) detectBulletCollision () {
 	}
 }
 
+/**
+ * <*Game>.dealWithCollisions:
+ * The function in Game to apply all collision effect.
+ *
+ * @return {nil}
+ */
 func (g *Game) dealWithCollisions () {
 	for _, collision := range g.MapInfo.Collisions {
 		// object_a must bee diep, then just get the player_a session
@@ -438,15 +489,4 @@ func (g *Game) dealWithCollisions () {
 				break;
 		}
 	}
-}
-
-func GetObjectId (m GameObjectInterface) string {
-	return m.GetId()
-}
-
-
-// define the JoinPlayer function in Game struct
-func (g Game) JoinPlayer (session *PlayerSession) {
-	// add the player session to channel
-	g.JoinChannel <- session
 }
