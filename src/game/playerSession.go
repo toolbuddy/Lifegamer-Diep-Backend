@@ -8,6 +8,7 @@ import (
 	"math"
 	"sync"
 	"github.com/f26401004/Lifegamer-Diep-backend/src/util"
+	// "sort"
 )
 
 /**
@@ -102,11 +103,11 @@ func (ps *PlayerSession) loop() {
 		// lock the Alive attr in player session
 		ps.ControlLock.Lock()
 		if (!ps.Alive) {
-			break;
+			break
 		}
+		ps.sendPlayerState()
 		// unlock the Alive attr in player session
 		ps.ControlLock.Unlock()
-		ps.sendPlayerState()
 	}
 }
 
@@ -135,12 +136,14 @@ func (ps *PlayerSession) ping() {
 			case  <- timeout:
 				if (!alive) {
 					log.Printf("Player %s disconnect", ps.Player.Attr.Name)
+					ps.Game.Disconnect(ps.Player.Attr.Name)
 					ps.Socket.Close()
 					// lock the Alive attr in player session
 					ps.ControlLock.Lock()
 					ps.Alive = false
 					// unlock the Alive attr in player session
 					ps.ControlLock.Unlock()
+					
 					break
 				}
 			case <- ps.MBus:
@@ -213,8 +216,10 @@ func (ps *PlayerSession) sendClientCommand(command PlayerSessionCommand) {
  * @return {nil}
  */
 func (ps *PlayerSession) sendPlayerState() {
+	ps.ControlLock.Lock()
 	// update the player view of all diep
 	ps.updateView()
+	ps.ControlLock.Unlock()
 	// send all diep position to client
 	ps.sendClientCommand(PlayerSessionCommand {
 		Method: "playerSession",

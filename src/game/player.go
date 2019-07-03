@@ -61,3 +61,15 @@ type Player struct {
 	Attr PlayerAttribute
 	Status PlayerStatus
 }
+
+/**
+ * <*Player>.GainEXP:
+ * The function in Player to gain exp and check evaluation.
+ *
+ * @param {int} exp					 																	- the amount of the exp
+ *
+ * @return {nil}
+ */
+func (p *Player) GainEXP(exp int) {
+	p.Attr.EXP += exp
+}

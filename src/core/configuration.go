@@ -11,10 +11,12 @@ import (
  *
  * @property {string} Host 								- the host string of the server
  * @property {string} Port								- the port string of the server
+ * @property {int} MaxRoom								- the max number of the room
  */
 type ServerConfiguration struct {
 	Host string
 	Port string
+	MaxRoom int
 }
 
 
@@ -42,5 +44,6 @@ func (c *Configuration) loadFromFile() error {
 	if err != nil {
 		return err
 	}
+	c.Server.MaxRoom = 50
 	return nil
 }

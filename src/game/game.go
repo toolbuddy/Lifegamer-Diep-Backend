@@ -8,6 +8,7 @@ import (
 	"time"
 	"math/rand"
 	"github.com/f26401004/Lifegamer-Diep-backend/src/util"
+	"sync"
 )
 
 // define the game friction
@@ -32,6 +33,7 @@ const ratio = 1.5
 	JoinChannel chan *PlayerSession
 	Field *util.Size
 	Framerate float64
+	ControlLock sync.Mutex
 }
 
 /**
@@ -163,8 +165,10 @@ func (g *Game) runListen () {
 	for {
 		// get the current join player session from channel
 		p_sess := <- g.JoinChannel
+		g.ControlLock.Lock()
 		// append the player session to Sessions
 		g.Sessions = append(g.Sessions, p_sess)
+		g.ControlLock.Unlock()
 		log.Printf("Player %s has joined\n", p_sess.Player.Attr.Name)
 	}
 }
@@ -181,6 +185,24 @@ func (g *Game) runListen () {
 }
 
 /**
+ * <*Game>.Disconnect:
+ * The function in Game to remove player session with disconnection.
+ *
+ * @property {string} player_name				- the target player name
+ *
+ * @return {nil}
+ */
+ func (g *Game) Disconnect (player_name string) {
+	// remove the player session from the game
+	var index int = sort.Search(len(g.Sessions), func (i int) bool {
+		return g.Sessions[i].Player.Attr.Name == player_name
+	})
+	g.ControlLock.Lock()
+	g.Sessions = append(g.Sessions[:index], g.Sessions[index+1:]...)
+	g.ControlLock.Unlock()
+}
+
+/**
  * <*Game>.loop:
  * The function in Game to keep computing the all movement of the item in the game.
  *
@@ -189,8 +211,10 @@ func (g *Game) runListen () {
 func (g *Game) loop () {
 	for {
 		time.Sleep(time.Duration(1000.0 / g.Framerate) * time.Millisecond)
+		g.ControlLock.Lock()
 		// update the player movement
 		g.updatePhysicItems()
+		g.ControlLock.Unlock()
 		// detect player & player collision
 		g.detectDeipCollision()
 		// detect player & stuff collision
@@ -201,7 +225,6 @@ func (g *Game) loop () {
 		g.detectBulletCollision()
 		// deal all collision
 		g.dealWithCollisions()
-		// broadcast the ping pong message to the client
 	}
 }
 
@@ -484,6 +507,27 @@ func (g *Game) dealWithCollisions () {
 				// give the collision damage
 				player_session_a.Player.Attr.HP -= float64(player_session_b.Player.Status.BodyDamage) * 5.0
 				player_session_b.Player.Attr.HP -= float64(player_session_a.Player.Status.BodyDamage) * 5.0
+				// deal with the dead
+				if (player_session_a.Player.Attr.HP <= 0) {
+					// send the dead message first
+					player_session_a.sendClientCommand(PlayerSessionCommand {
+						Method: "playerDead",
+						Params: CommandParams {},
+					})
+					player_session_a.ControlLock.Lock()
+					player_session_a.Alive = false
+					player_session_a.ControlLock.Unlock()
+				}
+				if (player_session_b.Player.Attr.HP <= 0) {
+					// send the dead message first
+					player_session_b.sendClientCommand(PlayerSessionCommand {
+						Method: "playerDead",
+						Params: CommandParams {},
+					})
+					player_session_b.ControlLock.Lock()
+					player_session_b.Alive = false
+					player_session_b.ControlLock.Unlock()
+				}
 				break;
 			case *Stuff:
 				target := collision.object_b.(*Stuff)
@@ -520,6 +564,22 @@ func (g *Game) dealWithCollisions () {
 				// give the collision damage
 				player_session_a.Player.Attr.HP -= float64(stuff.Attr.BodyDamage) * 5.0
 				stuff.Attr.HP -= float64(player_session_a.Player.Status.BodyDamage) * 5.0
+				// deal with the dead
+				if (player_session_a.Player.Attr.HP <= 0) {
+					// send the dead message first
+					player_session_a.sendClientCommand(PlayerSessionCommand {
+						Method: "playerDead",
+						Params: CommandParams {},
+					})
+					player_session_a.ControlLock.Lock()
+					player_session_a.Alive = false
+					player_session_a.ControlLock.Unlock()
+				}
+				if (stuff.Attr.HP <= 0) {
+					player_session_a.Player.GainEXP(stuff.Attr.EXP)
+					// remove the stuff
+					g.MapInfo.Stuffs = append(g.MapInfo.Stuffs[:stuff_index], g.MapInfo.Stuffs[stuff_index+1:]...)
+				}
 				break;
 			case *Trap:
 				target := collision.object_b.(*Trap)
@@ -550,6 +610,17 @@ func (g *Game) dealWithCollisions () {
 				
 				// give the collision damage
 				player_session_a.Player.Attr.HP -= float64(trap.Attr.BodyDamage) * 5.0
+				// deal with the dead
+				if (player_session_a.Player.Attr.HP <= 0) {
+					// send the dead message first
+					player_session_a.sendClientCommand(PlayerSessionCommand {
+						Method: "playerDead",
+						Params: CommandParams {},
+					})
+					player_session_a.ControlLock.Lock()
+					player_session_a.Alive = false
+					player_session_a.ControlLock.Unlock()
+				}
 				break;
 			case *Bullet:
 				target := collision.object_b.(*Bullet)
@@ -559,8 +630,18 @@ func (g *Game) dealWithCollisions () {
 				var bullet = g.MapInfo.Bullets[bullet_index]
 				
 				// give the collision damage
-				if (bullet.Owner == player_session_a.Player.Attr.Name) {
+				if (bullet.Owner != player_session_a.Player.Attr.Name) {
 					player_session_a.Player.Attr.HP -= float64(bullet.Damage) * 5.0
+					if (player_session_a.Player.Attr.HP <= 0) {
+						// send the dead message first
+						player_session_a.sendClientCommand(PlayerSessionCommand {
+							Method: "playerDead",
+							Params: CommandParams {},
+						})
+						player_session_a.ControlLock.Lock()
+						player_session_a.Alive = false
+						player_session_a.ControlLock.Unlock()
+					}
 					// remove the bullet
 					g.MapInfo.Bullets = append(g.MapInfo.Bullets[:bullet_index], g.MapInfo.Bullets[bullet_index+1:]...)
 				}

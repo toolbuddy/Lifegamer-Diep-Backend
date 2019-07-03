@@ -4,7 +4,13 @@ import (
 	"fmt"
 	"log"
 	"github.com/f26401004/Lifegamer-Diep-backend/src/game"
+	"sync"
 )
+
+type ServerStatus struct {
+	PlayerNumber int
+	RequestNumber int
+}
 
 /**
  * App:
@@ -12,12 +18,14 @@ import (
  *
  * @property {*Configuration} Configuration 								- the configuration struct of the app
  * @property {[]*game.Game} Games														- the slice of the games of the app
+ * @property {chan *game.Game} CreateChannel								- the channel of create game
  */
 type App struct {
 	Configuration *Configuration
+	Status ServerStatus
 	Games []*game.Game
+	ControlLock sync.Mutex
 }
-
 
 /**
  * <*App>.Run:
@@ -32,7 +40,8 @@ func (app *App) Run() {
 	if err != nil {
 		log.Fatal("Error loading config:", err)
 	}
-
-	app.Games = append(app.Games, game.NewGame("main_game", 8192, 8192) )
+	app.ControlLock.Lock()
+	app.Games = append(app.Games, game.NewGame("playground", 8192, 8192) )
+	app.ControlLock.Unlock()
 	app.runServer()
 }
