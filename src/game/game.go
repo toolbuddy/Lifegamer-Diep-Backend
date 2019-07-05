@@ -237,6 +237,7 @@ func (g *Game) loop () {
 func (g *Game) updatePhysicItems() {
 	// update the player movement
 	for _, ps := range g.Sessions {
+		ps.ControlLock.Lock()
 		// update the player acceleration
 		var new_acceleration util.AccelerationFormat
 		if (ps.Moving.Up) {
@@ -269,6 +270,7 @@ func (g *Game) updatePhysicItems() {
 		// update the player location
 		ps.Player.GameObject.Position.X = math.Max(math.Min(ps.Player.GameObject.Position.X + ps.Player.GameObject.Velocity.X / g.Framerate, g.Field.W), 0)
 		ps.Player.GameObject.Position.Y = math.Max(math.Min(ps.Player.GameObject.Position.Y + ps.Player.GameObject.Velocity.Y / g.Framerate, g.Field.H), 0)
+		ps.ControlLock.Unlock()
 	}
 	// update the bullet movement
 	for i, bullet := range g.MapInfo.Bullets {

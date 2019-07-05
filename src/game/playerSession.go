@@ -46,7 +46,7 @@ type PlayerSession struct {
 	MBus chan bool
 	Alive bool
 	Player *Player // player
-	View *PlayerView
+	View PlayerView
 	Moving util.MoveDirection
 	ControlLock sync.Mutex
 }
@@ -77,7 +77,8 @@ func (ps *PlayerSession) receiver() {
 	// keep read the player message
 	for {
 		if (!ps.Alive) {
-			break
+			log.Println("receiver: not alive")
+			return
 		}
 		_, command, err := ps.Socket.ReadMessage()
 		if (err != nil) {
@@ -99,15 +100,13 @@ func (ps *PlayerSession) receiver() {
 func (ps *PlayerSession) loop() {
 	var stepDelay int32 = int32(1000 / ps.Game.Framerate)
 	for {
-		time.Sleep(time.Duration(stepDelay) * time.Millisecond)
-		// lock the Alive attr in player session
 		ps.ControlLock.Lock()
 		if (!ps.Alive) {
-			break
+			return
 		}
-		ps.sendPlayerState()
-		// unlock the Alive attr in player session
 		ps.ControlLock.Unlock()
+		time.Sleep(time.Duration(stepDelay) * time.Millisecond)
+		ps.sendPlayerState()
 	}
 }
 
@@ -121,6 +120,9 @@ func (ps *PlayerSession) ping() {
 	// use local variable here
 	var alive bool = false
 	for {
+		if (!ps.Alive) {
+			return
+		}
 		// send ping message to check connection alive first
 		ps.sendPingMsg()
 		// set alive false first
@@ -144,15 +146,14 @@ func (ps *PlayerSession) ping() {
 					// unlock the Alive attr in player session
 					ps.ControlLock.Unlock()
 					
-					break
+					return
 				}
 			case <- ps.MBus:
 				// set the alive vairable true if receive any message fron client
 				alive = true
-				break
 		}
 		if (!alive) {
-			break
+			return
 		}
 	}
 }
@@ -200,13 +201,13 @@ func (ps *PlayerSession) serveCommand(command PlayerSessionCommand) {
  * @return {nil}
  */
 func (ps *PlayerSession) sendClientCommand(command PlayerSessionCommand) {
-	message_b, _ := json.Marshal(command)
 	ps.ControlLock.Lock()
+	message_b, _ := json.Marshal(command)
 	err := ps.Socket.WriteMessage(websocket.TextMessage, message_b)
+	ps.ControlLock.Unlock()
 	if (err != nil) {
 		ps.Socket.Close()
 	}
-	ps.ControlLock.Unlock()
 }
 
 /**
@@ -231,6 +232,7 @@ func (ps *PlayerSession) sendPlayerState() {
 			"bullets": ps.View.Bullets,
 		},
 	})
+	// log.Println("test")
 }
 
 /**

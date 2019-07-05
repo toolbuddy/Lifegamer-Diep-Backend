@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"net/http/pprof"
 	"github.com/f26401004/Lifegamer-Diep-backend/src/game"
 )
 
@@ -67,7 +68,7 @@ func gameWebsocketHandler(app *App, w http.ResponseWriter, r *http.Request) {
 	var select_game *game.Game = nil;
 	// search the game room by room name
 	if (queries["room"][0] != "") {
-		for _, game := range (*app).Games {
+		for _, game := range app.Games {
 			if (game.Name == queries["room"][0]) {
 				select_game = game	
 			}
@@ -80,16 +81,16 @@ func gameWebsocketHandler(app *App, w http.ResponseWriter, r *http.Request) {
 		// if the game room do not exist, then create new game room
 		if (select_game == nil) {
 			select_game = game.NewGame(queries["room"][0], 8192.0, 8192.0)
-			app.ControlLock.Lock()
+			// app.ControlLock.Lock()
 			app.Games = append(app.Games, select_game)
-			app.ControlLock.Unlock()
+			// app.ControlLock.Unlock()
 		}
  	} else {
 		// default select the first game instance
-		select_game = (*app).Games[0]
+		select_game = app.Games[0]
 	}
 	// check repeatation of the player name
-	select_game.ControlLock.Lock()
+	// select_game.ControlLock.Lock()
 	for _, ps := range select_game.Sessions {
 		if (ps.Player.Attr.Name == queries["name"][0]) {
 			log.Println("[Error]: Repeat player name!")
@@ -97,7 +98,7 @@ func gameWebsocketHandler(app *App, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	select_game.ControlLock.Unlock()
+	// select_game.ControlLock.Unlock()
 	// generate the player instance
 	player := game.NewPlayer(queries["name"][0])
 	// generate the player session
@@ -110,7 +111,7 @@ func gameWebsocketHandler(app *App, w http.ResponseWriter, r *http.Request) {
 	(*app).Status.RequestNumber += 1
 
 	log.Printf("Player %s joined to game room %s", queries["name"][0], queries["room"][0])
-	log.Printf("Server Status: \n%d room(s)\n%d player(s)", len((*app).Games), 1)
+	log.Printf("Server Status: %d room(s), %d player(s)", len((*app).Games), 1)
 }
 
 /**
@@ -137,6 +138,17 @@ func (app App) runServer () {
 	http.HandleFunc("/", staticHandler)
 	// handle the game websocket messaging in url "/game_ws"
 	http.Handle("/game_ws", serverHandler { &app, gameWebsocketHandler })
+
+	go func () {
+		r := http.NewServeMux()
+		r.HandleFunc("/debug/pprof/", pprof.Index)
+		r.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		r.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		r.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		r.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		http.ListenAndServe(":3000", r)
+	}()
+
 	log.Println("run server on port", (*app.Configuration).Server.Port)
 	if err := http.ListenAndServe(fmt.Sprintf("%s:%s", (*app.Configuration).Server.Host, (*app.Configuration).Server.Port), nil); err != nil {
 		log.Fatal("ListenAndServe: ", err)
