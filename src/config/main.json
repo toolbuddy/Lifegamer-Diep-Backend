@@ -2,7 +2,7 @@
 {
   "Server": {
     "Host": "localhost",
-    "Port": "8080",
+    "Port": "3000",
     "Friction": "0.1"
   }
 }

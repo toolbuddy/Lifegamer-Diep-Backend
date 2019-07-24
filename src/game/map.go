@@ -3,11 +3,14 @@ package game
 
 import (
 	"math/rand"
+	"math"
+	"time"
 	"io/ioutil"
 	"os"
 	"strconv"
 	"encoding/json"
 	"github.com/f26401004/Lifegamer-Diep-backend/src/util"
+	"log"
 )
 
 /**
@@ -126,34 +129,35 @@ type Map struct {
 }
 
 /**
- * <game>.NewStuff:
+ * <*Game>.NewStuff:
  * The function to new a stuff in random position.
  *
  * @return {*Stuff}
  */
-func NewStuff() *Stuff {
+func (g *Game) NewStuff() *Stuff {
 	// read the stuff type through json file
-	jsonFile, err := os.Open("src/config/stuffType.json")
+	jsonFile, err := os.Open("./src/config/stuffType.json")
 	if (err != nil) {
+		log.Print(err)
 		return nil
 	}
 	defer jsonFile.Close()
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 	// decode the json to the map[string]interface{}
-	var stuffType map[string]interface{}
-  json.Unmarshal([]byte(byteValue), &stuffType)
+	var stuffType map[string]StuffAttribute
+	json.Unmarshal([]byte(byteValue), &stuffType)
 
 	// generate the random type of the stuff
-	var type_num = int(rand.Float64() * 4 + 1)
-	var type_attr = stuffType[strconv.Itoa(type_num)].(StuffAttribute)
+	var type_num = int(rand.Float64() * 5 + 1)
+	var type_attr = stuffType[strconv.Itoa(type_num)]
 
 	uuid, _ := util.NewUUID()
 	var new_stuff = Stuff {
 		GameObject: GameObject {
 			Id: uuid,
 			Position: util.Point {
-				X: rand.Float64() * 1023,
-				Y: rand.Float64() * 1023,
+				X: rand.Float64() * g.Field.W,
+				Y: rand.Float64() * g.Field.H,
 			},
 			Mass: 1.0,
 			Radius: 50.0,
@@ -178,4 +182,29 @@ func NewStuff() *Stuff {
 	return &new_stuff
 }
 
-// TODO: event driven to generate the stuff
+func (g *Game) generateStuff () {
+	for i := 0; i < 50 ; i++ {
+		target := g.NewStuff()
+		if (target == nil) {
+			return
+		}
+		g.MapInfo.Stuffs = append(g.MapInfo.Stuffs, target)
+		// log.Printf("Generate Stuff %d at Position X: %f, Y: %f, Total stuff: %d\n", target.Type, target.GameObject.Position.X, target.GameObject.Position.Y, len(g.MapInfo.Stuffs))
+	}
+	for {
+		// sleep correspond to the number of the stuffs
+		var stepDelay = int32(math.Pow(float64(len(g.MapInfo.Stuffs)), 1.618 / math.Max(float64(len(g.Sessions)), 2) * math.Max(float64(len(g.Sessions) - 1), 1)))
+		time.Sleep(time.Duration(stepDelay) * time.Millisecond)
+		// if the stuff meet the maximum number, the stop generate the stuff
+		if (float64(len(g.MapInfo.Stuffs)) > math.Max(float64(len(g.Sessions)), 1) * 1000 * 1.618 / math.Max(float64(len(g.Sessions)), 2) * math.Max(float64(len(g.Sessions) - 1), 1)) {
+			return
+		}
+		// generate the stuff and append to the map
+		target := g.NewStuff()
+		if (target == nil) {
+			return
+		}
+		g.MapInfo.Stuffs = append(g.MapInfo.Stuffs, target)
+		// log.Printf("Generate Stuff %d at Position X: %f, Y: %f, Total stuff: %d\n", target.Type, target.GameObject.Position.X, target.GameObject.Position.Y, len(g.MapInfo.Stuffs))
+	}
+}

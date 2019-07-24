@@ -22,6 +22,7 @@ import (
 	Radius float64
 	Velocity util.VelocityFormat
 	Acceleration util.AccelerationFormat
+	Rotation float64
 }
 
 /**

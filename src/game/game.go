@@ -64,6 +64,8 @@ func NewGame(name string, width, height float64) *Game {
 	}
 	go game.runListen()
 	go game.loop()
+	// generate the stuff randomly
+	go game.generateStuff()
 	return &game
 }
 
@@ -130,6 +132,7 @@ func NewPlayer (name string) *Player {
 			Level: 1,
 			EXP: 0,
 			HP: 100,
+			ShootCD: 0,
 		},
 		Status: PlayerStatus {
 			MaxHP: 100,
@@ -270,6 +273,10 @@ func (g *Game) updatePhysicItems() {
 		// update the player location
 		ps.Player.GameObject.Position.X = math.Max(math.Min(ps.Player.GameObject.Position.X + ps.Player.GameObject.Velocity.X / g.Framerate, g.Field.W), 0)
 		ps.Player.GameObject.Position.Y = math.Max(math.Min(ps.Player.GameObject.Position.Y + ps.Player.GameObject.Velocity.Y / g.Framerate, g.Field.H), 0)
+		
+		// update the player shoot CD time
+		ps.Player.Attr.ShootCD = math.Max(ps.Player.Attr.ShootCD - 1, 0)
+
 		ps.ControlLock.Unlock()
 	}
 	// update the bullet movement

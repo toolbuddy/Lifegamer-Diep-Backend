@@ -14,6 +14,7 @@ import (
  * @property {int} Level																			- the level of the player
  * @property {int} EXP																				- the current EXP of the player
  * @property {float64} HP																			- the current HP of the player
+ * @property {int} ShootCD																		- the shoot cd time counter
  */
 type PlayerAttribute struct {
 	Name string
@@ -22,6 +23,7 @@ type PlayerAttribute struct {
 	Level int
 	EXP int
 	HP float64
+	ShootCD float64
 }
 
 /**

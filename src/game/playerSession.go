@@ -303,6 +303,16 @@ func (ps *PlayerSession) updateView () {
  * @return {nil}
  */
 func (ps *PlayerSession) Shoot (x, y float64, number int) {
+	// if there is cd time, then refuse shoot
+	if (ps.Player.Attr.ShootCD >= 0) {
+		ps.sendClientCommand(PlayerSessionCommand {
+			Method: "shoot",
+			Params: CommandParams {
+				"message": "You can not shoot in CD time!",
+			},
+		})
+		return
+	}
 	for i := 0; i < number; i++ {
 		var new_bullet Bullet
 		new_bullet.Position.X = ps.Player.Position.X
@@ -313,6 +323,8 @@ func (ps *PlayerSession) Shoot (x, y float64, number int) {
 		new_bullet.Existence = (ps.Player.Status.BulletPenetration - 1) * 40 +  250
 		ps.Game.MapInfo.Bullets = append(ps.Game.MapInfo.Bullets, &new_bullet)
 	}
+	// add shoot cd time
+	ps.Player.Attr.ShootCD += 1000 / math.Log2(1.0 / float64(ps.Player.Status.BulletReload))
 }
 
 /**
