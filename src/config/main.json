@@ -2,7 +2,9 @@
 {
   "Server": {
     "Host": "localhost",
-    "Port": "3000",
-    "Friction": "0.1"
+    "Port": "3001",
+    "Friction": "0.1",
+    "MaxRoom": 100,
+    "MaxRoomMember": 100
   }
 }

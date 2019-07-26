@@ -25,6 +25,7 @@ const ratio = 1.5
  * @property {chan *PlayerSessions} JoinChannel								- the channel of joining player
  * @property {*util.Size} Field																- the field information of the game
  * @property {float64} Framerate															- the framerate of the game
+ * @property {*GameLogger} Logger															- the logger of the game
  */
  type Game struct {
 	Name string
@@ -34,6 +35,7 @@ const ratio = 1.5
 	Field *util.Size
 	Framerate float64
 	ControlLock sync.Mutex
+	Logger *GameLogger
 }
 
 /**
@@ -61,6 +63,7 @@ func NewGame(name string, width, height float64) *Game {
 			H: height,
 		},
 		Framerate: 50.0,
+		Logger: NewLogger(name),
 	}
 	go game.runListen()
 	go game.loop()
@@ -88,6 +91,8 @@ func NewGame(name string, width, height float64) *Game {
 		MBus: make (chan bool, 1),
 		Alive: true,
 	}
+	// log the connection
+	game.Logger.establishConnection(ws.RemoteAddr().String(), player.Attr.Name, game.Name, int(len(game.Sessions)) + 1)
 	// parallel execute receiver, loop and ping function
 	go ps.receiver()
 	go ps.loop()
@@ -196,6 +201,8 @@ func (g *Game) runListen () {
  * @return {nil}
  */
  func (g *Game) Disconnect (player_name string) {
+	 // log the disconnection
+	g.Logger.closeConnection(player_name, g.Name, int(len(g.Sessions)) - 1)
 	// remove the player session from the game
 	var index int = sort.Search(len(g.Sessions), func (i int) bool {
 		return g.Sessions[i].Player.Attr.Name == player_name
@@ -518,6 +525,8 @@ func (g *Game) dealWithCollisions () {
 				player_session_b.Player.Attr.HP -= float64(player_session_a.Player.Status.BodyDamage) * 5.0
 				// deal with the dead
 				if (player_session_a.Player.Attr.HP <= 0) {
+					// log the dead message
+					g.Logger.deadMessage(player_session_a.Player.GameObject.Id, player_session_b.Player.GameObject.Id)
 					// send the dead message first
 					player_session_a.sendClientCommand(PlayerSessionCommand {
 						Method: "playerDead",
@@ -528,6 +537,8 @@ func (g *Game) dealWithCollisions () {
 					player_session_a.ControlLock.Unlock()
 				}
 				if (player_session_b.Player.Attr.HP <= 0) {
+					// log the dead message
+					g.Logger.deadMessage(player_session_b.Player.GameObject.Id, player_session_a.Player.GameObject.Id)
 					// send the dead message first
 					player_session_b.sendClientCommand(PlayerSessionCommand {
 						Method: "playerDead",
@@ -575,6 +586,8 @@ func (g *Game) dealWithCollisions () {
 				stuff.Attr.HP -= float64(player_session_a.Player.Status.BodyDamage) * 5.0
 				// deal with the dead
 				if (player_session_a.Player.Attr.HP <= 0) {
+					// log the dead message
+					g.Logger.deadMessage(player_session_a.Player.GameObject.Id, stuff.GameObject.Id)
 					// send the dead message first
 					player_session_a.sendClientCommand(PlayerSessionCommand {
 						Method: "playerDead",
@@ -585,6 +598,8 @@ func (g *Game) dealWithCollisions () {
 					player_session_a.ControlLock.Unlock()
 				}
 				if (stuff.Attr.HP <= 0) {
+					// log the dead message
+					g.Logger.deadMessage(stuff.GameObject.Id, player_session_a.Player.GameObject.Id)
 					player_session_a.Player.GainEXP(stuff.Attr.EXP)
 					// remove the stuff
 					g.MapInfo.Stuffs = append(g.MapInfo.Stuffs[:stuff_index], g.MapInfo.Stuffs[stuff_index+1:]...)
@@ -621,6 +636,8 @@ func (g *Game) dealWithCollisions () {
 				player_session_a.Player.Attr.HP -= float64(trap.Attr.BodyDamage) * 5.0
 				// deal with the dead
 				if (player_session_a.Player.Attr.HP <= 0) {
+					// log the dead message
+					g.Logger.deadMessage(player_session_a.Player.GameObject.Id, trap.GameObject.Id)
 					// send the dead message first
 					player_session_a.sendClientCommand(PlayerSessionCommand {
 						Method: "playerDead",
@@ -629,6 +646,12 @@ func (g *Game) dealWithCollisions () {
 					player_session_a.ControlLock.Lock()
 					player_session_a.Alive = false
 					player_session_a.ControlLock.Unlock()
+				}
+				if (trap.Attr.HP <= 0) {
+					// log the dead message
+					g.Logger.deadMessage(trap.GameObject.Id, player_session_a.Player.GameObject.Id)
+					// remove the trap
+					g.MapInfo.Traps = append(g.MapInfo.Traps[:trap_index], g.MapInfo.Traps[trap_index+1:]...)
 				}
 				break;
 			case *Bullet:
@@ -642,6 +665,10 @@ func (g *Game) dealWithCollisions () {
 				if (bullet.Owner != player_session_a.Player.Attr.Name) {
 					player_session_a.Player.Attr.HP -= float64(bullet.Damage) * 5.0
 					if (player_session_a.Player.Attr.HP <= 0) {
+						// log the dead message
+						g.Logger.deadMessage(player_session_a.Player.GameObject.Id, bullet.GameObject.Id)
+						// log the dead message
+						g.Logger.deadMessage(player_session_a.Player.GameObject.Id, bullet.GameObject.Id)
 						// send the dead message first
 						player_session_a.sendClientCommand(PlayerSessionCommand {
 							Method: "playerDead",

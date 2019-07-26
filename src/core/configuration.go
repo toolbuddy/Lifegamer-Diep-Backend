@@ -17,6 +17,7 @@ type ServerConfiguration struct {
 	Host string
 	Port string
 	MaxRoom int
+	MaxRoomMember int
 }
 
 

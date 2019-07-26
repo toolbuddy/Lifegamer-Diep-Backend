@@ -137,6 +137,8 @@ func (ps *PlayerSession) ping() {
 		select {
 			case  <- timeout:
 				if (!alive) {
+					// log loose connection message
+					ps.Game.Logger.looseConnection(ps.Player.Attr.Name, ps.Game.Name, int(len(ps.Game.Sessions)) - 1)
 					log.Printf("Player %s disconnect", ps.Player.Attr.Name)
 					ps.Game.Disconnect(ps.Player.Attr.Name)
 					ps.Socket.Close()
@@ -184,7 +186,7 @@ func (ps *PlayerSession) serveCommand(command PlayerSessionCommand) {
 			ps.Moving.Right = command.Params["value"].(bool)
 			break
 		case "shoot":
-			ps.Shoot(command.Params["x"].(float64), command.Params["y"].(float64), int(command.Params["number"].(float64)))
+			ps.Shoot(command.Params["angle"].(float64), command.Params["number"].(int))
 			break
 		case "evaluation":
 			ps.Evaluation(command.Params["type"].(string))
@@ -296,13 +298,12 @@ func (ps *PlayerSession) updateView () {
  * <*PlayerSession>.Shoot:
  * The function in PlayerSession to shot.
  *
- * @param {float64} x										- the volume of angle project on x
- * @param {float64} y										- the volume of angle project on y
+ * @param {float64} angle								- the angle of the bullet shoot direction
  * @param {int} number									- the bullet number in this shoot
  *
  * @return {nil}
  */
-func (ps *PlayerSession) Shoot (x, y float64, number int) {
+func (ps *PlayerSession) Shoot (angle float64, number int) {
 	// if there is cd time, then refuse shoot
 	if (ps.Player.Attr.ShootCD >= 0) {
 		ps.sendClientCommand(PlayerSessionCommand {
@@ -317,14 +318,16 @@ func (ps *PlayerSession) Shoot (x, y float64, number int) {
 		var new_bullet Bullet
 		new_bullet.Position.X = ps.Player.Position.X
 		new_bullet.Position.Y = ps.Player.Position.Y
-		new_bullet.Velocity.X = x * float64(ps.Player.Status.BulletSpeed + 10) / ratio
-		new_bullet.Velocity.Y = y * float64(ps.Player.Status.BulletSpeed + 10) / ratio
+		new_bullet.Velocity.X = math.Acos(angle / 360 * 2 * math.Pi) * float64(ps.Player.Status.BulletSpeed + 10) / ratio
+		new_bullet.Velocity.Y = math.Asin(angle / 360 * 2 * math.Pi) * float64(ps.Player.Status.BulletSpeed + 10) / ratio
 		new_bullet.Owner = ps.Player.Id
 		new_bullet.Existence = (ps.Player.Status.BulletPenetration - 1) * 40 +  250
 		ps.Game.MapInfo.Bullets = append(ps.Game.MapInfo.Bullets, &new_bullet)
 	}
 	// add shoot cd time
 	ps.Player.Attr.ShootCD += 1000 / math.Log2(1.0 / float64(ps.Player.Status.BulletReload))
+	// log shoot message
+	ps.Game.Logger.shootBullet(ps.Player.Attr.Name, number, angle)
 }
 
 /**
@@ -336,30 +339,50 @@ func (ps *PlayerSession) Shoot (x, y float64, number int) {
  * @return {nil}
  */
 func (ps *PlayerSession) Evaluation (type_str string) {
+	var from = 0
+	var to = 0
 	switch type_str {
 		case "MaxHP":
 			ps.Player.Status.MaxHP++
+			from = ps.Player.Status.MaxHP - 1
+			to = ps.Player.Status.MaxHP
 			break
 		case "HPRegeneration":
 			ps.Player.Status.HPRegeneration++
+			from = ps.Player.Status.HPRegeneration - 1
+			to = ps.Player.Status.HPRegeneration
 			break
 		case "MoveSpeed":
 			ps.Player.Status.MoveSpeed++
+			from = ps.Player.Status.MoveSpeed - 1
+			to = ps.Player.Status.MoveSpeed
 			break
 		case "BulletSpeed":
 			ps.Player.Status.BulletSpeed++
+			from = ps.Player.Status.BulletSpeed - 1
+			to = ps.Player.Status.BulletSpeed
 			break
 		case "BulletPenetration":
 			ps.Player.Status.BulletPenetration++
+			from = ps.Player.Status.BulletPenetration - 1
+			to = ps.Player.Status.BulletPenetration
 			break
 		case "BulletReload":
 			ps.Player.Status.BulletReload++
+			from = ps.Player.Status.BulletReload - 1
+			to = ps.Player.Status.BulletReload
 			break
 		case "BulletDamage":
 			ps.Player.Status.BulletDamage++
+			from = ps.Player.Status.BulletDamage - 1
+			to = ps.Player.Status.BulletDamage
 			break
 		case "BodyDamage":
 			ps.Player.Status.BodyDamage++
+			from = ps.Player.Status.BodyDamage - 1
+			to = ps.Player.Status.BodyDamage
 			break
 	}
+	// log evaluation message
+	ps.Game.Logger.playerEvaluation(ps.Player.Attr.Name, type_str, from, to)
 }

@@ -65,7 +65,13 @@ func gameWebsocketHandler(app *App, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Player name can not be empty!", 400)
 		return
 	}
-	var select_game *game.Game = nil;
+	var select_game *game.Game = nil
+	// if the room number meet the maximum
+	if (len(app.Games) >= (*app.Configuration).Server.MaxRoom) {
+		log.Println("[Error]: The Room number meet the maximum!")
+		http.Error(w, "Server room number meet the maximum!", 400)
+		return
+	}
 	// search the game room by room name
 	if (queries["room"][0] != "") {
 		for _, game := range app.Games {
@@ -74,8 +80,8 @@ func gameWebsocketHandler(app *App, w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if (len(app.Games) > app.Configuration.Server.MaxRoom) {
-			log.Println("[Error]: Server game room reach maximum number!")
-			http.Error(w, "Server game room reach maximum number!", 400)
+			log.Println("[Error]: The number of game room meet maximum!")
+			http.Error(w, "The number of game room meet maximum !", 400)
 			return
 		}
 		// if the game room do not exist, then create new game room
@@ -88,6 +94,12 @@ func gameWebsocketHandler(app *App, w http.ResponseWriter, r *http.Request) {
  	} else {
 		// default select the first game instance
 		select_game = app.Games[0]
+	}
+	// check if the room member do no meet the maximum
+	if (len(select_game.Sessions) >= (*app.Configuration).Server.MaxRoomMember) {
+		log.Println("[Error]: The member of the game rom meet maximum!")
+		http.Error(w, "The member of game room meet maximum", 400)
+		return
 	}
 	// check repeatation of the player name
 	// select_game.ControlLock.Lock()

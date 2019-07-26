@@ -80,6 +80,7 @@ type Stuff struct {
  * @property {int} BodyDamage																- the body damage of the trap
  */
 type TrapAttribute struct {
+	HP int
 	BulletSpeed int
 	BulletDamage int
 	BulletReload int
